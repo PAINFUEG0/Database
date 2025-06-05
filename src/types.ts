@@ -1,7 +1,15 @@
 /** @format */
 
 export type Payload =
-  | { path: string; key: string; method: "GET" | "DELETE" }
-  | { key: string; path: string; value: string; method: "SET" };
+  | { path: string; key: string; method: "GET" | "DELETE"; requestId: string }
+  | { key: string; path: string; value: string; method: "SET"; requestId: string };
 
-export type Response = { data: null; status: 404 } | { data: string; status: 200 };
+export type Response =
+  | { data: null; status: 404; requestId: string }
+  | { data: string; status: 200; requestId: string };
+
+export interface ChildEvents {
+  error: [err: Error];
+  connected: [address: string];
+  disconnected: [address: string];
+}
