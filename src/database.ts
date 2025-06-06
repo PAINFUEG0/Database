@@ -84,7 +84,7 @@ export class Database<T> {
       path: this.#path,
       method: "SET",
       key,
-      value: typeof value === "object" && value !== null ? JSON.stringify(value) : value
+      value: value
     });
   }
 }

@@ -21,17 +21,34 @@ databaseManager.on("error", (err) => console.error(err));
 await databaseManager.connect();
 console.log("Manager ready !");
 
-const db = databaseManager.createDatabase<string>("./storage");
+const db = databaseManager.createDatabase<any>("./storage");
 console.log((await databaseManager.ping()) + "ms");
 
-console.time("WS - set");
-for (let i = 0; i < 10000; i++) await db.set(i.toString(), i.toString());
-console.timeEnd("WS - set");
+// console.time("WS - set");
+// for (let i = 0; i < 10000; i++) await db.set(i.toString(), i.toString());
+// console.timeEnd("WS - set");
 
-console.time("WS - get");
-for (let i = 0; i < 10000; i++) await db.get(i.toString());
-console.timeEnd("WS - get");
+// console.time("WS - get");
+// for (let i = 0; i < 10000; i++) await db.get(i.toString());
+// console.timeEnd("WS - get");
 
-console.time("WS - delete");
-for (let i = 0; i < 10000; i++) await db.delete(i.toString());
-console.timeEnd("WS - delete");
+// console.time("WS - delete");
+// for (let i = 0; i < 10000; i++) await db.delete(i.toString());
+// console.timeEnd("WS - delete");
+
+db.set("string", "string");
+db.set("number", 1);
+db.set("boolean", true);
+db.set("null", null);
+db.set("undefined", undefined);
+db.set("object", { a: 1, b: 2 });
+db.set("object2", { a: 1, b: "2" });
+db.set("object3", { a: 1, b: "2", c: true });
+db.set("object4", { a: 1, b: "2", c: true, d: null });
+
+db.set("object5", { a: 1, b: "2", c: true, d: null, e: { a: 1, b: "2", c: true, d: null, f: [1, "2", true, null] } });
+
+db.set("array", [1, 2, 3]);
+
+
+console.log(await db.all())
