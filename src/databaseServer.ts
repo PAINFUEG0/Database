@@ -27,32 +27,36 @@ export class DatabaseServer {
   async #handleMessage(ws: WebSocket, message: RawData) {
     const data = JSON.parse(message.toString()) as Payload;
 
-    const key = data.key;
-    const path = data.path;
-    const requestId = data.requestId;
-
-    const db = this.#databases.get(path) || this.#databases.set(path, new CoreDatabase({ path })).get(path)!;
+    const db =
+      this.#databases.get(data.path) ||
+      this.#databases.set(data.path, new CoreDatabase({ path: data.path })).get(data.path)!;
 
     switch (data.method) {
+      case "ALL":
+        {
+          const value = db.all();
+          ws.send(JSON.stringify({ data: value, status: 200, requestId: data.requestId }));
+        }
+        break;
       case "DELETE":
         {
-          await db.delete(key);
-          ws.send(JSON.stringify({ data: null, status: 200, requestId }));
+          db.delete(data.key);
+          ws.send(JSON.stringify({ data: null, status: 200, requestId: data.requestId }));
         }
         break;
 
       case "SET":
         {
-          await db.set(key, data.value);
-          ws.send(JSON.stringify({ data: data.value, status: 200, requestId }));
+          db.set(data.key, data.value);
+          ws.send(JSON.stringify({ data: data.value, status: 200, requestId: data.requestId }));
         }
         break;
 
       case "GET":
         {
-          const value = await db.get(key);
-          if (value === null) return ws.send(JSON.stringify({ data: null, status: 404, requestId }));
-          ws.send(JSON.stringify({ data: value, status: 200, requestId }));
+          const value = db.get(data.key);
+          if (value === null) return ws.send(JSON.stringify({ data: null, status: 404, requestId: data.requestId }));
+          ws.send(JSON.stringify({ data: value, status: 200, requestId: data.requestId }));
         }
         break;
     }

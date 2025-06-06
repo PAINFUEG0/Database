@@ -43,7 +43,7 @@ export class CoreDatabase<T> {
     this.#path = op.path;
     existsSync(this.#path) || mkdirSync(this.#path, { recursive: true });
 
-    if (existsSync(this.#path + "/index.json")) writeFileSync(this.#path + "/index.json", "{}");
+    if (!existsSync(this.#path + "/index.json")) writeFileSync(this.#path + "/index.json", "{}");
 
     this.#index = JSON.parse(readFileSync(this.#path + "/index.json", "utf-8"));
 

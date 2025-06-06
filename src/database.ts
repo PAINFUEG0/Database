@@ -43,12 +43,39 @@ export class Database<T> {
     return request.promise;
   }
 
+  async all() {
+    return await this.#makeRequest<T | null>({
+      requestId: randomUUID(),
+      path: this.#path,
+      method: "ALL"
+    });
+  }
+
+  async has(key: string) {
+    return !!(await this.#makeRequest<T | null>({
+      requestId: randomUUID(),
+      path: this.#path,
+      method: "GET",
+      key
+    }));
+  }
+
   async get(key: string) {
-    return this.#makeRequest<T | null>({ requestId: randomUUID(), path: this.#path, method: "GET", key });
+    return this.#makeRequest<T | null>({
+      requestId: randomUUID(),
+      path: this.#path,
+      method: "GET",
+      key
+    });
   }
 
   async delete(key: string) {
-    return this.#makeRequest<null>({ requestId: randomUUID(), path: this.#path, method: "DELETE", key });
+    return this.#makeRequest<null>({
+      requestId: randomUUID(),
+      path: this.#path,
+      method: "DELETE",
+      key
+    });
   }
 
   async set(key: string, value: T) {
