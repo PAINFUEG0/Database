@@ -1,8 +1,8 @@
 /** @format */
 
 import { WebSocket } from "ws";
-import { Database } from "./database.js";
 import { EventEmitter } from "events";
+import { Database } from "./database.js";
 
 import type { ChildEvents } from "./typings/types.js";
 

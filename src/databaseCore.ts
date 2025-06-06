@@ -20,15 +20,11 @@ export class CoreDatabase<T> {
   #debouncedWrite() {
     this.#debounceCount++;
 
-    if (this.#debounceCount >= this.#maxDebounceCount)
-      return (this.#debounceCount = 0), this.#write();
+    if (this.#debounceCount >= this.#maxDebounceCount) return (this.#debounceCount = 0), this.#write();
 
     this.#timer?.refresh();
 
-    this.#timer ||= setTimeout(
-      () => (this.#isWriting ? this.#debouncedWrite() : this.#write()),
-      this.#debounceTime
-    );
+    this.#timer ||= setTimeout(() => (this.#isWriting ? this.#debouncedWrite() : this.#write()), this.#debounceTime);
   }
 
   #write() {
@@ -37,8 +33,7 @@ export class CoreDatabase<T> {
 
     this.#isWriting = true;
 
-    for (const file of _)
-      writeFileSync(`${this.#path}/${file}`, JSON.stringify(this.#cache.get(file)));
+    for (const file of _) writeFileSync(`${this.#path}/${file}`, JSON.stringify(this.#cache.get(file)));
     writeFileSync(`${this.#path}/index.json`, JSON.stringify(this.#index));
 
     this.#isWriting = false;
@@ -48,7 +43,7 @@ export class CoreDatabase<T> {
     this.#path = op.path;
     existsSync(this.#path) || mkdirSync(this.#path, { recursive: true });
 
-    existsSync(this.#path + "/index.json") || writeFileSync(this.#path + "/index.json", "{}");
+    if (existsSync(this.#path + "/index.json")) writeFileSync(this.#path + "/index.json", "{}");
 
     this.#index = JSON.parse(readFileSync(this.#path + "/index.json", "utf-8"));
 
@@ -175,7 +170,7 @@ export class CoreDatabase<T> {
 
     Object.defineProperty(data, "values", { value: Object.values(data), enumerable: false });
     Object.defineProperty(data, "keys", { value: Object.keys(data), enumerable: false });
-    //@ts-ignore
+    //@ts-expect-error not really
     Object.defineProperty(data, "size", { value: data.keys.length, enumerable: false });
 
     return data as Record<string, T> & { keys: string[]; values: T[]; size: number };

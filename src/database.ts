@@ -52,6 +52,12 @@ export class Database<T> {
   }
 
   async set(key: string, value: T) {
-    return this.#makeRequest<T>({ requestId: randomUUID(), path: this.#path, method: "SET", key, value: JSON.stringify(value) });
+    return this.#makeRequest<T>({
+      requestId: randomUUID(),
+      path: this.#path,
+      method: "SET",
+      key,
+      value: JSON.stringify(value)
+    });
   }
 }
