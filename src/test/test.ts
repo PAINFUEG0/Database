@@ -18,4 +18,23 @@ await databaseManager.connect();
 console.log("Manager ready !");
 
 const db = databaseManager.createDatabase<any>("./storage");
-console.log((await databaseManager.ping()) + "ms");
+
+console.log(`Websocket ping is ${await databaseManager.ping()} ms`);
+
+let start = process.hrtime();
+for (let i = 0; i < 10000; i++) await db.set(i.toString(), i);
+let diff = process.hrtime(start);
+let timeInMs = diff[0] * 1000 + diff[1] / 1e6;
+console.log(`[ SET ] - 10000 keys in : ${timeInMs.toFixed(4)} ms | ~ ${Math.round(10000 / (timeInMs / 1000))} req/s`);
+
+start = process.hrtime();
+for (let i = 0; i < 10000; i++) await db.get(i.toString());
+diff = process.hrtime(start);
+timeInMs = diff[0] * 1000 + diff[1] / 1e6;
+console.log(`[ GET ] - 10000 keys in : ${timeInMs.toFixed(4)} ms | ~ ${Math.round(10000 / (timeInMs / 1000))} req/s`);
+
+start = process.hrtime();
+for (let i = 0; i < 10000; i++) await db.delete(i.toString());
+diff = process.hrtime(start);
+timeInMs = diff[0] * 1000 + diff[1] / 1e6;
+console.log(`[ DEL ] - 10000 keys in : ${timeInMs.toFixed(4)} ms | ~ ${Math.round(10000 / (timeInMs / 1000))} req/s`);
