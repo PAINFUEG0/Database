@@ -27,7 +27,7 @@ export class Database<T> {
       return null;
     }
 
-    const request = {} as { promise: Promise<D | null>; resolve: (...args: any) => void };
+    const request = {} as { promise: Promise<D>; resolve: (...args: any) => void };
 
     request.promise = new Promise<D>((resolve) => (request.resolve = resolve));
 
@@ -44,21 +44,14 @@ export class Database<T> {
   }
 
   async get(key: string) {
-    const requestId = randomUUID();
-    const payload: Payload = { requestId, path: this.#path, method: "GET", key };
-    return this.#makeRequest<T>(payload);
+    return this.#makeRequest<T | null>({ requestId: randomUUID(), path: this.#path, method: "GET", key });
   }
 
   async delete(key: string) {
-    const requestId = randomUUID();
-    const payload: Payload = { requestId, path: this.#path, method: "DELETE", key };
-    return this.#makeRequest<null>(payload);
+    return this.#makeRequest<null>({ requestId: randomUUID(), path: this.#path, method: "DELETE", key });
   }
 
   async set(key: string, value: T) {
-    const requestId = randomUUID();
-    const _value = JSON.stringify(value);
-    const payload: Payload = { requestId, path: this.#path, method: "SET", key, value: _value };
-    return this.#makeRequest<T>(payload);
+    return this.#makeRequest<T>({ requestId: randomUUID(), path: this.#path, method: "SET", key, value: JSON.stringify(value) });
   }
 }
