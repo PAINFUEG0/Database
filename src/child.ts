@@ -1,16 +1,16 @@
 /** @format */
 
-import { Manager } from "./manager.js";
 import { randomUUID } from "node:crypto";
 
+import type { DatabaseManager } from "./manager.js";
 import type { Payload, Response } from "./types.js";
 
 export class Child<T> {
   #path: string;
-  #manager: Manager;
+  #manager: DatabaseManager;
   #requests = new Map();
 
-  constructor(manager: Manager, path: string) {
+  constructor(manager: DatabaseManager, path: string) {
     this.#path = path;
     this.#manager = manager;
 
@@ -21,37 +21,23 @@ export class Child<T> {
     });
   }
 
-  async close() {
-    return this.#manager.close();
-  }
-
-  async reconnect() {
-    return this.#manager.reconnect();
-  }
-
-  #ensureConnection() {
-    if (!this.#manager.isSocketOpen)
-      throw new Error(`Connection to ${this.#path} is not not ready / open !`);
-    // tbd . . .
-  }
-
-  async #makeRequest<D>(requestId: string, payload: Payload) {
-    this.#ensureConnection();
+  async #makeRequest<D>(payload: Payload) {
+    if (!this.#manager.isSocketOpen) {
+      this.#manager.emit("dropped", ...[this.#path, JSON.stringify(payload), "Socket is not open"]);
+      return null;
+    }
 
     const request = {} as { promise: Promise<D | null>; resolve: (...args: any) => void };
 
     request.promise = new Promise<D>((resolve) => (request.resolve = resolve));
 
-    this.#requests.set(requestId, request);
+    this.#requests.set(payload.requestId, request);
     this.#manager.webSocket.send(JSON.stringify(payload));
 
     setTimeout(() => {
-      if (!this.#requests.get(requestId)) return;
-
-      this.#ensureConnection();
-
+      if (!this.#requests.get(payload.requestId)) return;
       request.resolve(null);
-      this.#requests.delete(requestId);
+      this.#requests.delete(payload.requestId);
     }, 2500);
 
     return request.promise;
@@ -59,20 +45,20 @@ export class Child<T> {
 
   async get(key: string) {
     const requestId = randomUUID();
-    const payload: Payload = { path: this.#path, method: "GET", key: key, requestId };
-    return this.#makeRequest<T>(requestId, payload);
+    const payload: Payload = { requestId, path: this.#path, method: "GET", key };
+    return this.#makeRequest<T>(payload);
   }
 
   async delete(key: string) {
     const requestId = randomUUID();
-    const payload: Payload = { path: this.#path, method: "DELETE", key: key, requestId };
-    return this.#makeRequest<null>(requestId, payload);
+    const payload: Payload = { requestId, path: this.#path, method: "DELETE", key };
+    return this.#makeRequest<null>(payload);
   }
 
   async set(key: string, value: T) {
     const requestId = randomUUID();
     const _value = JSON.stringify(value);
-    const payload: Payload = { key, requestId, path: this.#path, method: "SET", value: _value };
-    return this.#makeRequest<T>(requestId, payload);
+    const payload: Payload = { requestId, path: this.#path, method: "SET", key, value: _value };
+    return this.#makeRequest<T>(payload);
   }
 }

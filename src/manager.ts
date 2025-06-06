@@ -6,7 +6,7 @@ import { EventEmitter } from "events";
 
 import type { ChildEvents } from "./types.js";
 
-export class Manager extends EventEmitter<ChildEvents> {
+export class DatabaseManager extends EventEmitter<ChildEvents> {
   #didConnect = false;
   #webSocket!: WebSocket;
   #socketAddress: string;
@@ -24,18 +24,7 @@ export class Manager extends EventEmitter<ChildEvents> {
     this.#socketAddress = socketAddress;
   }
 
-  async reconnect() {
-    await this.close();
-    await this.connect();
-  }
-
-  async close() {
-    this.#webSocket.close();
-    await new Promise((resolve) => this.once("disconnected", resolve));
-    this.#didConnect = false;
-  }
-
-  create<T>(path: string): Child<T> {
+  createDatabase<T>(path: string): Child<T> {
     return new Child<T>(this, path);
   }
 
@@ -53,7 +42,7 @@ export class Manager extends EventEmitter<ChildEvents> {
 
     this.#webSocket.on("error", (error) => this.emit("error", error));
 
-    await new Promise((resolve) => this.once("connected", resolve));
+    await new Promise((resolve) => this.on("connected", resolve));
   }
 
   async ping() {
