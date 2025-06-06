@@ -2,7 +2,7 @@
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 
-export class DB<T> {
+export class CoreDatabase<T> {
   #path!: string;
   #maxKeysInFile = 100;
   #index!: { [fileName: string]: string[] };

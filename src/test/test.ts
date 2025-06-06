@@ -1,11 +1,17 @@
 /** @format */
 
-import { Parent } from "../parent.js";
-import { DatabaseManager } from "../manager.js";
+// import Lib from "../index.js";
+// import * as Lib from "../index.js";
+import sourceMapSupport from "source-map-support";
+import { DatabaseServer, DatabaseManager } from "../index.js";
 
-new Parent();
+sourceMapSupport.install();
+
+new DatabaseServer();
+// new Lib.DatabaseServer();
 
 const databaseManager = new DatabaseManager("ws://localhost:8080");
+// const databaseManager = new Lib.DatabaseManager("ws://localhost:8080");
 
 databaseManager.on("disconnected", (address) => console.log(`Disconnected from ${address}`));
 databaseManager.on("dropped", (...args) => console.log(`Dropped ${args.join(" | ")}`));

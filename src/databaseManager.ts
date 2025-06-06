@@ -1,10 +1,10 @@
 /** @format */
 
 import { WebSocket } from "ws";
-import { Child } from "./child.js";
+import { Database } from "./database.js";
 import { EventEmitter } from "events";
 
-import type { ChildEvents } from "./types.js";
+import type { ChildEvents } from "./typings/types.js";
 
 export class DatabaseManager extends EventEmitter<ChildEvents> {
   #didConnect = false;
@@ -24,8 +24,8 @@ export class DatabaseManager extends EventEmitter<ChildEvents> {
     this.#socketAddress = socketAddress;
   }
 
-  createDatabase<T>(path: string): Child<T> {
-    return new Child<T>(this, path);
+  createDatabase<T>(path: string): Database<T> {
+    return new Database<T>(this, path);
   }
 
   async connect() {

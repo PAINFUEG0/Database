@@ -1,31 +1,30 @@
 /** @format */
 
-import { DB } from "./db.js";
+import { CoreDatabase } from "./databaseCore.js";
 import { WebSocketServer } from "ws";
-import { Logger } from "pastel-logger";
 
-import type { Payload } from "./types.js";
+import type { Payload } from "./typings/types.js";
 import type { RawData, WebSocket } from "ws";
 
-const logger = new Logger();
-
-export class Parent {
+export class DatabaseServer {
   #wss: WebSocketServer;
 
   constructor(port = 8080) {
     this.#wss = new WebSocketServer({ port });
 
-    this.#wss.on("listening", () => logger.log(`Server started on port ${port}`));
+    this.#wss.on("listening", () => console.log(`Server started on port ${port}`));
 
     this.#wss.on("connection", (ws, req) => {
       ws.on("message", async (message) => this.#handleMessage(ws, message));
-      ws.on("error", (err) => logger.error(JSON.stringify(err.stack)));
-      ws.on("close", () => logger.log(`Connection closed from ${req.socket.remoteAddress}`));
-      logger.log(`Child established a new connection established from ${req.socket.remoteAddress}`);
+      ws.on("error", (err) => console.error(JSON.stringify(err.stack)));
+      ws.on("close", () => console.log(`Connection closed from ${req.socket.remoteAddress}`));
+      console.log(
+        `Child established a new connection established from ${req.socket.remoteAddress}`
+      );
     });
   }
 
-  #databases = new Map<string, DB<any>>();
+  #databases = new Map<string, CoreDatabase<any>>();
 
   async #handleMessage(ws: WebSocket, message: RawData) {
     const data = JSON.parse(message.toString()) as Payload;
@@ -34,7 +33,8 @@ export class Parent {
     const path = data.path;
     const requestId = data.requestId;
 
-    const db = this.#databases.get(path) || this.#databases.set(path, new DB({ path })).get(path)!;
+    const db =
+      this.#databases.get(path) || this.#databases.set(path, new CoreDatabase({ path })).get(path)!;
 
     switch (data.method) {
       case "DELETE":

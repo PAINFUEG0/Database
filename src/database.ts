@@ -2,10 +2,10 @@
 
 import { randomUUID } from "node:crypto";
 
-import type { DatabaseManager } from "./manager.js";
-import type { Payload, Response } from "./types.js";
+import type { DatabaseManager } from "./databaseManager.js";
+import type { Payload, Response } from "./typings/types.js";
 
-export class Child<T> {
+export class Database<T> {
   #path: string;
   #manager: DatabaseManager;
   #requests = new Map();

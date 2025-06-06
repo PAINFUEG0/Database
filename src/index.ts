@@ -1,9 +1,7 @@
 /** @format */
 
-import { Logger } from "pastel-logger";
-import sourceMapSupport from "source-map-support";
+import { DatabaseServer } from "./databaseServer.js";
+import { DatabaseManager } from "./databaseManager.js";
 
-sourceMapSupport.install();
-
-const logger = new Logger();
-logger.log("PASS !");
+export { DatabaseManager, DatabaseServer };
+export default { DatabaseManager, DatabaseServer };
