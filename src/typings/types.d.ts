@@ -3,7 +3,7 @@
 export type Payload =
   | { path: string; method: "ALL"; requestId: string }
   | { path: string; key: string; method: "GET" | "DELETE"; requestId: string }
-  | { key: string; path: string; value: string; method: "SET"; requestId: string };
+  | { key: string; path: string; value: any; method: "SET"; requestId: string };
 
 export type Response =
   | { data: null; status: 404; requestId: string }
