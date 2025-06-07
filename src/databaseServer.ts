@@ -38,6 +38,7 @@ export class DatabaseServer {
           ws.send(JSON.stringify({ data: value, status: 200, requestId: data.requestId }));
         }
         break;
+
       case "DELETE":
         {
           db.delete(data.key);
