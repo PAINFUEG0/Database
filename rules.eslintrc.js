@@ -38,9 +38,7 @@ export const sortImportsByLength = {
         const typeText = sortedType.map((n) => sourceCode.getText(n)).join("\n");
         const normalText = sortedNormal.map((n) => sourceCode.getText(n)).join("\n");
 
-        const expectedText = typeImports.length
-          ? `${normalText.trim()}\n\n${typeText.trim()}`
-          : normalText.trim();
+        const expectedText = typeImports.length ? `${normalText.trim()}\n\n${typeText.trim()}` : normalText.trim();
 
         const firstImport = importNodes[0];
         const lastImport = importNodes[importNodes.length - 1];
@@ -54,10 +52,7 @@ export const sortImportsByLength = {
               `Expected : \n${expectedText}\n` +
               `Actual   : \n${actualText}`,
             fix(fixer) {
-              return fixer.replaceTextRange(
-                [firstImport.range[0], lastImport.range[1]],
-                expectedText.trim()
-              );
+              return fixer.replaceTextRange([firstImport.range[0], lastImport.range[1]], expectedText.trim());
             }
           });
         }
