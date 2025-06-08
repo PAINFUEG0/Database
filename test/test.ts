@@ -1,7 +1,7 @@
 /** @format */
 
 import sourceMapSupport from "source-map-support";
-import { DatabaseServer, DatabaseManager } from "../index.js";
+import { DatabaseServer, DatabaseManager } from "../src/index.js";
 
 sourceMapSupport.install();
 
