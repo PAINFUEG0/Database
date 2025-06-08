@@ -83,7 +83,7 @@ export class DatabaseServer {
     }
 
     this.#fileWriter.appendFile(
-      "./log.csv",
+      this.#logFile,
       `${Date.now()},\t${data.requestId},\t${data.path},\t${data.method},\t${"key" in data ? data.key : ""},\t${"value" in data ? data.value : ""}\n`
     );
   }
