@@ -29,7 +29,7 @@ export class DatabaseServer {
       }
 
       console.log(
-        ` ${new Date(Date.now()).toString()} - [ SERVER ] - Recovery Engine completed running the last 500 requests in ${Date.now() - start}ms`
+        ` ${new Date(Date.now()).toString()} - [ SERVER ] - Recovery Engine completed running the last 1000 requests in ${Date.now() - start}ms`
       );
     }
 
