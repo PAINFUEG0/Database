@@ -129,6 +129,8 @@ export class CoreDatabase<T> {
 
     const data = this.#cache.get(file) ?? this.#cache.set(file, {}).get(file)!;
 
+    if (data[key] == value) return value;
+
     data[key] = value;
 
     this.#writeQueue.add(file);

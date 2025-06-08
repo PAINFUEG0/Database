@@ -7,32 +7,28 @@ import type { Payload, Response } from "./typings/types.js";
 
 export class Database<T> {
   #path: string;
-  #manager: DatabaseManager;
   #requests = new Map();
+  #manager: DatabaseManager;
 
   constructor(manager: DatabaseManager, path: string) {
     this.#path = path;
     this.#manager = manager;
 
-    manager.webSocket.on("message", (message) => {
+    manager.webSocket!.on("message", (message) => {
       const data = JSON.parse(message.toString()) as Response;
       this.#requests.get(data.requestId)?.resolve(data.data);
       this.#requests.delete(data.requestId);
     });
   }
 
-  async #makeRequest<D>(payload: Payload) {
-    if (!this.#manager.isSocketOpen) {
-      this.#manager.emit("dropped", ...[this.#path, JSON.stringify(payload), "Socket is not open"]);
-      return null;
-    }
+  async #makeReq<D>(payload: Payload) {
+    if (!this.#manager.isSocketOpen)
+      return void this.#manager.emit("dropped", ...[this.#path, JSON.stringify(payload), "Socket is not open"]);
 
-    const request = {} as { promise: Promise<D>; resolve: (...args: any) => void };
-
-    request.promise = new Promise<D>((resolve) => (request.resolve = resolve));
-
+    const request = {} as { promise: Promise<D | null>; resolve: (args: D | null) => void };
+    request.promise = new Promise<D | null>((resolve) => (request.resolve = resolve));
     this.#requests.set(payload.requestId, request);
-    this.#manager.webSocket.send(JSON.stringify(payload));
+    this.#manager.webSocket!.send(JSON.stringify(payload));
 
     setTimeout(() => {
       if (!this.#requests.get(payload.requestId)) return;
@@ -43,48 +39,19 @@ export class Database<T> {
     return request.promise;
   }
 
-  async all() {
-    return await this.#makeRequest<T | null>({
-      requestId: randomUUID(),
-      path: this.#path,
-      method: "ALL"
-    });
-  }
-
-  async has(key: string) {
-    return !!(await this.#makeRequest<T | null>({
-      requestId: randomUUID(),
-      path: this.#path,
-      method: "GET",
-      key
-    }));
-  }
-
-  async get(key: string) {
-    return this.#makeRequest<T | null>({
-      requestId: randomUUID(),
-      path: this.#path,
-      method: "GET",
-      key
-    });
-  }
-
   async delete(key: string) {
-    return this.#makeRequest<null>({
-      requestId: randomUUID(),
-      path: this.#path,
-      method: "DELETE",
-      key
-    });
+    return this.#makeReq<null>({ requestId: randomUUID(), path: this.#path, method: "DELETE", key });
   }
-
+  async get(key: string) {
+    return this.#makeReq<T | null>({ requestId: randomUUID(), path: this.#path, method: "GET", key });
+  }
+  async all() {
+    return await this.#makeReq<T | null>({ requestId: randomUUID(), path: this.#path, method: "ALL" });
+  }
   async set(key: string, value: T) {
-    return this.#makeRequest<T>({
-      requestId: randomUUID(),
-      path: this.#path,
-      method: "SET",
-      key,
-      value: value
-    });
+    return this.#makeReq<T>({ requestId: randomUUID(), path: this.#path, method: "SET", key, value: value });
+  }
+  async has(key: string) {
+    return !!(await this.#makeReq<T | null>({ requestId: randomUUID(), path: this.#path, method: "GET", key }));
   }
 }

@@ -1,4 +1,5 @@
 /app
 /.env
-/node_modules
 /storage
+logs.csv
+/node_modules

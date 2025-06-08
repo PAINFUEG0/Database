@@ -2,7 +2,7 @@
   "type": "module",
   "main": "app/index.js",
   "scripts": {
-    "lint": "eslint ./src",
+    "lint": "eslint ./src --fix",
     "test": "node app/index.js",
     "build": "npm run rm-app  && tsc",
     "format": "prettier --log-level warn --write .",

@@ -8,7 +8,7 @@ import type { ChildEvents } from "./typings/types.js";
 
 export class DatabaseManager extends EventEmitter<ChildEvents> {
   #didConnect = false;
-  #webSocket!: WebSocket;
+  #webSocket?: WebSocket;
   #socketAddress: string;
 
   get webSocket() {
@@ -16,6 +16,7 @@ export class DatabaseManager extends EventEmitter<ChildEvents> {
   }
 
   get isSocketOpen() {
+    if (!this.#webSocket) return false;
     return this.#webSocket.readyState === this.#webSocket.OPEN;
   }
 
@@ -25,6 +26,7 @@ export class DatabaseManager extends EventEmitter<ChildEvents> {
   }
 
   createDatabase<T>(path: string): Database<T> {
+    if (!this.#webSocket) throw new Error(`Please call <DatabaseManager>.connect() before trying to create a database`);
     return new Database<T>(this, path);
   }
 
@@ -46,6 +48,7 @@ export class DatabaseManager extends EventEmitter<ChildEvents> {
   }
 
   async ping() {
+    if (!this.#webSocket) return -1;
     if (this.#webSocket.readyState === this.#webSocket.CONNECTING) return -1;
 
     if (!this.#didConnect) return null;
@@ -53,8 +56,8 @@ export class DatabaseManager extends EventEmitter<ChildEvents> {
 
     const sent = Date.now();
     return new Promise((resolve) => {
-      this.#webSocket.ping();
-      this.#webSocket.once("pong", () => resolve(Date.now() - sent));
+      this.#webSocket!.ping();
+      this.#webSocket!.once("pong", () => resolve(Date.now() - sent));
     });
   }
 }
