@@ -1,6 +1,6 @@
 /** @format */
 
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 export class CoreDatabase<T> {
   #path!: string;
@@ -51,38 +51,23 @@ export class CoreDatabase<T> {
       this.#cache.set(fileName, JSON.parse(readFileSync(this.#path + "/" + fileName, "utf-8")));
   }
 
-  /**
-   * @description Checks if the key is present in any file
-   * if yes return the fileName and an array of keys in that file
-   * if not return undefined
-   */
   #searchIndexForKey(key: string) {
     for (const [fileName, keysInFile] of Object.entries(this.#index))
       if (keysInFile.includes(key)) return { fileName, keysInFile };
   }
 
-  /**
-   * @description Returns the name of the last file in the index
-   * if no files are present returns undefined
-   */
   #getLastFile() {
     const files = Object.keys(this.#index);
     const lastFile = files[files.length - 1];
     return lastFile;
   }
 
-  /**
-   * @description Checks the number of keys in a file
-   */
   #checkNumberOfKeysInFile(fileName: string) {
     const keysInFile = this.#index[fileName];
     const numberOfKeysInFile = keysInFile!.length;
     return numberOfKeysInFile;
   }
 
-  /**
-   * @description Creates a new file and adds it to the index and returns the fileName
-   */
   #createFile() {
     const fileName = `data_${Object.keys(this.#index).length + 1}.json`;
     writeFileSync(this.#path + "/" + fileName, "{}");
@@ -90,37 +75,35 @@ export class CoreDatabase<T> {
     return fileName;
   }
 
-  /**
-   * @description Checks if the last file has more than 100 keys
-   * if yes creates and returns the new file
-   * if no returns the last file
-   */
   #getSuitableFile() {
     const lastFile = this.#lookforSpaciousFile() || this.#getLastFile() || this.#createFile();
     if (this.#checkNumberOfKeysInFile(lastFile) >= this.#maxKeysInFile) return this.#createFile();
     else return lastFile;
   }
 
-  /**
-   * @description Returns the name of the first file that has less than 100 keys if any
-   */
   #lookforSpaciousFile() {
     for (const [fileName, keysInFile] of Object.entries(this.#index))
       if (keysInFile.length < this.#maxKeysInFile) return fileName;
   }
 
-  /////////////////////////////////////////////////////////////////////////////////////////////////
+  all() {
+    const data = this.#cache.values().reduce(
+      (prev, curr) => {
+        for (const [key, value] of Object.entries(curr)) prev[key] = value;
+        return prev;
+      },
+      {} as { [key: string]: T }
+    );
 
-  has(key: string) {
-    return !!this.#searchIndexForKey(key);
+    return data;
   }
 
-  get(key: string): T | null {
+  get(key: string) {
     const res = this.#searchIndexForKey(key);
     return res ? (this.#cache.get(res.fileName)![key] as T) : null;
   }
 
-  set(key: string, value: T): T {
+  set(key: string, value: T) {
     const res = this.#searchIndexForKey(key);
 
     const file = res ? res.fileName : this.#getSuitableFile();
@@ -139,7 +122,7 @@ export class CoreDatabase<T> {
     return value;
   }
 
-  delete(key: string): T | null {
+  delete(key: string) {
     const res = this.#searchIndexForKey(key);
 
     if (!res) return null;
@@ -158,34 +141,4 @@ export class CoreDatabase<T> {
 
     return deleted;
   }
-
-  /////////////////////////////////////////////////////////////////////////////////////////////////
-
-  all() {
-    const data = this.#cache.values().reduce(
-      (prev, curr) => {
-        for (const [key, value] of Object.entries(curr)) prev[key] = value;
-        return prev;
-      },
-      {} as { [key: string]: T }
-    );
-
-    Object.defineProperty(data, "values", { value: Object.values(data), enumerable: false });
-    Object.defineProperty(data, "keys", { value: Object.keys(data), enumerable: false });
-    //@ts-expect-error not really
-    Object.defineProperty(data, "size", { value: data.keys.length, enumerable: false });
-
-    return data as Record<string, T> & { keys: string[]; values: T[]; size: number };
-  }
-
-  /////////////////////////////////////////////////////////////////////////////////////////////////
-
-  clear() {
-    this.#index = {};
-    this.#cache.clear();
-    rmSync(this.#path, { recursive: true, force: true });
-    mkdirSync(this.#path, { recursive: true });
-  }
-
-  /////////////////////////////////////////////////////////////////////////////////////////////////
 }
