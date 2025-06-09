@@ -20,6 +20,7 @@
     "typescript-eslint": "^8.28.0"
   },
   "dependencies": {
+    "pastel-logger": "^1.0.3",
     "ws": "^8.18.2"
   }
 }
