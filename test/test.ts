@@ -1,11 +1,9 @@
 /** @format */
 
 import sourceMapSupport from "source-map-support";
-import { DatabaseServer, DatabaseManager } from "../src/index.js";
+import { DatabaseManager } from "../src/index.js";
 
 sourceMapSupport.install();
-
-new DatabaseServer();
 
 const databaseManager = new DatabaseManager("ws://localhost:8080", "hello");
 

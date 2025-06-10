@@ -1,7 +1,7 @@
 /** @format */
 
 import { WebSocket } from "ws";
-import { EventEmitter } from "events";
+import { EventEmitter, once } from "events";
 import { Database } from "./database.js";
 import { setTimeout as sleep } from "node:timers/promises";
 
@@ -9,6 +9,7 @@ import type { ChildEvents } from "../typings/types.js";
 
 export class DatabaseManager extends EventEmitter<ChildEvents> {
   #auth: string;
+  #tries = 0;
   #webSocket?: WebSocket;
   #socketAddress: string;
 
@@ -28,10 +29,11 @@ export class DatabaseManager extends EventEmitter<ChildEvents> {
   }
 
   async ping() {
-    if (!this.webSocket || this.webSocket.readyState !== this.webSocket.OPEN) return;
+    if (!this.isSocketOpen) return null;
 
     const sent = Date.now();
-    return await new Promise<number>((resolve) => {
+
+    return new Promise<number | null>(async (resolve) => {
       const fn = () => {
         resolve(Date.now() - sent);
         this.webSocket!.off("pong", fn);
@@ -39,14 +41,19 @@ export class DatabaseManager extends EventEmitter<ChildEvents> {
 
       this.webSocket!.ping();
       this.webSocket!.on("pong", fn);
+
+      await sleep(2500);
+
+      this.#webSocket!.off("pong", fn);
+      resolve(null);
     });
   }
 
-  #tries = 0;
   async reconnect() {
-    if (this.#tries >= 5) return;
-
-    this.#webSocket?.terminate();
+    if (this.#tries >= 5) {
+      this.emit("disconnected", this.#socketAddress);
+      return;
+    }
 
     await sleep(2500);
 
@@ -57,34 +64,25 @@ export class DatabaseManager extends EventEmitter<ChildEvents> {
       })
       .catch(() => {
         ++this.#tries;
-        this.reconnect();
       });
   }
 
   async connect() {
-    this.#webSocket = new WebSocket(this.#socketAddress, { headers: { Authorization: this.#auth } });
-
-    this.on("disconnected", this.reconnect);
-    this.#webSocket.on("error", (error) => this.emit("error", error));
-    this.#webSocket.on("open", () => this.emit("connected", this.#socketAddress));
-
-    return await new Promise((resolve, reject) => {
-      setTimeout(() => reject(new Error("Connection timeout")), 2500);
-
-      this.on("connected", resolve);
-
-      this.#webSocket?.on("close", (code, reason) => {
-        switch (code) {
-          case 1006:
-            this.emit("disconnected", this.#socketAddress);
-            break;
-
-          case 4401:
-            reject(new Error(reason.toString()));
-            break;
-        }
-      });
-    });
+    const controller = new AbortController();
+    try {
+      this.#webSocket = new WebSocket(this.#socketAddress, { headers: { Authorization: this.#auth } });
+      this.#webSocket.on("error", console.error);
+      this.#webSocket.on("close", this.reconnect.bind(this));
+      await Promise.race([
+        once(this.#webSocket, "open", { signal: controller.signal }),
+        once(this.#webSocket, "close", { signal: controller.signal })
+      ]);
+      if (this.isSocketOpen) this.emit("connected", this.#socketAddress);
+    } catch (err) {
+      throw err;
+    } finally {
+      controller.abort();
+    }
   }
 
   createDatabase<T>(path: string): Database<T> {
