@@ -7,7 +7,7 @@ sourceMapSupport.install();
 
 new DatabaseServer();
 
-const databaseManager = new DatabaseManager("ws://localhost:8080");
+const databaseManager = new DatabaseManager("ws://localhost:8080", "hello");
 
 databaseManager.on("disconnected", (address) => console.log(`Disconnected from ${address}`));
 databaseManager.on("dropped", (...args) => console.log(`Dropped ${args.join(" | ")}`));

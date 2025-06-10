@@ -7,6 +7,7 @@ import { Database } from "./database.js";
 import type { ChildEvents } from "../typings/types.js";
 
 export class DatabaseManager extends EventEmitter<ChildEvents> {
+  #auth: string;
   #didConnect = false;
   #webSocket?: WebSocket;
   #socketAddress: string;
@@ -20,8 +21,9 @@ export class DatabaseManager extends EventEmitter<ChildEvents> {
     return this.webSocket.readyState === this.webSocket.OPEN;
   }
 
-  constructor(socketAddress: string) {
+  constructor(socketAddress: string, auth: string) {
     super();
+    this.#auth = auth;
     this.#socketAddress = socketAddress;
   }
 
@@ -41,7 +43,7 @@ export class DatabaseManager extends EventEmitter<ChildEvents> {
   }
 
   async connect() {
-    this.#webSocket = new WebSocket(this.#socketAddress);
+    this.#webSocket = new WebSocket(this.#socketAddress, { headers: { Authorization: `Bearer ${this.#auth}` } });
 
     this.#webSocket.on("error", (error) => this.emit("error", error));
     this.#webSocket.on("close", () => !this.#didConnect || this.emit("disconnected", this.#socketAddress));
