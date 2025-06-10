@@ -23,19 +23,19 @@ export class DatabaseServer {
   constructor(port = 8080, auth = "hello") {
     this.#recoveryEngine.run();
 
-    this.#wss = new WebSocketServer({ port });
+    this.#wss = new WebSocketServer({
+      port,
+      verifyClient: ({ req }, cb) => {
+        const authHeader = req.headers["authorization"];
+        if (!authHeader) return cb(false, 4401, "Unauthorized: No credentials provided !");
+        if (authHeader !== auth) return cb(false, 4401, "Unauthorized: Invalid credentials");
+        cb(true);
+      }
+    });
 
     this.#wss.on("listening", async () => this.#log(`Server started on port ${port}`, "success"));
 
     this.#wss.on("connection", (ws, req) => {
-      const authHeader = req.headers["authorization"];
-      if (!authHeader) return ws.close(4401, "Unauthorized: No credentials provided");
-
-      const [authType, authToken] = authHeader.split(" ");
-
-      if (authType !== "Bearer") return ws.close(4401, 'Unauthorized: Credentials must be "Bearer <auth_token>"');
-      if (authToken !== auth) return ws.close(4401, "Unauthorized: Invalid credentials");
-
       ws.on("message", async (message) => this.#handleMessage(ws, message));
       ws.on("error", (err) => this.#log(JSON.stringify(err.stack), "error"));
       ws.on("close", () => this.#log(`Connection closed from ${req.socket.remoteAddress}`, "warn"));

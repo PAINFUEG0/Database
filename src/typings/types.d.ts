@@ -3,6 +3,7 @@
 export interface ChildEvents {
   error: [err: Error];
   connected: [address: string];
+  reconnected: [address: string];
   disconnected: [address: string];
   dropped: [path: string, payload: string, reason: string];
 }

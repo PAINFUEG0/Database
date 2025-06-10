@@ -3,12 +3,12 @@
 import { WebSocket } from "ws";
 import { EventEmitter } from "events";
 import { Database } from "./database.js";
+import { setTimeout as sleep } from "node:timers/promises";
 
 import type { ChildEvents } from "../typings/types.js";
 
 export class DatabaseManager extends EventEmitter<ChildEvents> {
   #auth: string;
-  #didConnect = false;
   #webSocket?: WebSocket;
   #socketAddress: string;
 
@@ -42,14 +42,49 @@ export class DatabaseManager extends EventEmitter<ChildEvents> {
     });
   }
 
+  #tries = 0;
+  async reconnect() {
+    if (this.#tries >= 5) return;
+
+    this.#webSocket?.terminate();
+
+    await sleep(2500);
+
+    await this.connect()
+      .then(() => {
+        this.#tries = 0;
+        this.emit("reconnected", this.#socketAddress);
+      })
+      .catch(() => {
+        ++this.#tries;
+        this.reconnect();
+      });
+  }
+
   async connect() {
-    this.#webSocket = new WebSocket(this.#socketAddress, { headers: { Authorization: `Bearer ${this.#auth}` } });
+    this.#webSocket = new WebSocket(this.#socketAddress, { headers: { Authorization: this.#auth } });
 
+    this.on("disconnected", this.reconnect);
     this.#webSocket.on("error", (error) => this.emit("error", error));
-    this.#webSocket.on("close", () => !this.#didConnect || this.emit("disconnected", this.#socketAddress));
-    this.#webSocket.on("open", () => ((this.#didConnect = true), this.emit("connected", this.#socketAddress)));
+    this.#webSocket.on("open", () => this.emit("connected", this.#socketAddress));
 
-    return await new Promise((resolve) => this.on("connected", resolve));
+    return await new Promise((resolve, reject) => {
+      setTimeout(() => reject(new Error("Connection timeout")), 2500);
+
+      this.on("connected", resolve);
+
+      this.#webSocket?.on("close", (code, reason) => {
+        switch (code) {
+          case 1006:
+            this.emit("disconnected", this.#socketAddress);
+            break;
+
+          case 4401:
+            reject(new Error(reason.toString()));
+            break;
+        }
+      });
+    });
   }
 
   createDatabase<T>(path: string): Database<T> {
