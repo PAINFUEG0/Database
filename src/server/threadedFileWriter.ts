@@ -20,12 +20,4 @@ export class FileWriter {
   }
 }
 
-if (!isMainThread) {
-  parentPort?.on("message", ({ path, data }) => {
-    try {
-      appendFileSync(path, data);
-    } catch (err) {
-      console.error("Failed to append file:", err);
-    }
-  });
-}
+if (!isMainThread) parentPort?.on("message", ({ path, data }) => appendFileSync(path, data));

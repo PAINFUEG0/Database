@@ -3,8 +3,8 @@
 import { join } from "node:path";
 import { WebSocketServer } from "ws";
 import { Logger } from "pastel-logger";
-import { RecoveryEngine } from "./recoveryEngine.js";
 import { CoreDatabase } from "./databaseCore.js";
+import { RecoveryEngine } from "./recoveryEngine.js";
 
 import type { RawData, WebSocket } from "ws";
 import type { Payload } from "../typings/types.js";
@@ -62,6 +62,6 @@ export class DatabaseServer {
         break;
     }
 
-    this.#recoveryEngine.log(data);
+    this.#recoveryEngine.recordRequest(data);
   }
 }

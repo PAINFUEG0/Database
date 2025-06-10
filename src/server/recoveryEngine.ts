@@ -1,10 +1,11 @@
 /** @format */
 
+import { Logger } from "pastel-logger";
 import { existsSync, readFileSync } from "fs";
 import { CoreDatabase } from "./databaseCore.js";
 import { FileWriter } from "./threadedFileWriter.js";
-import { Payload } from "../typings/types.js";
-import { Logger } from "pastel-logger";
+
+import type { Payload } from "../typings/types.js";
 
 export class RecoveryEngine {
   #logFile: string;
@@ -23,7 +24,7 @@ export class RecoveryEngine {
   }
 
   async run() {
-    if (!existsSync(this.#logFile)) return this.#log(`No log file found at ${this.#logFile}`, "warn");
+    if (!existsSync(this.#logFile)) return this.#log(`Skipping RE !!! No log file found at ${this.#logFile}`, "warn");
 
     this.#log(`Running Recovery Engine`, "info");
 
@@ -42,10 +43,10 @@ export class RecoveryEngine {
     this.#log(`RE completed running the last ${this.#requestCount} requests in ${Date.now() - start}ms`, "success");
   }
 
-  log(data: Payload) {
+  recordRequest(data: Payload) {
     this.#fileWriter.appendFile(
       this.#logFile,
-      //@ts-expect-error accessing prop that may/not be present (<data>.key | <data>.value) | Wont throw error !!!
+      //@ts-expect-error - Accessing <data>.key | <data>.value even when non-existant - Won't throw error !!!
       `${Date.now()},\t${data.requestId},\t${data.path},\t${data.method},\t${data.key || ""},\t${data.value || ""}\n`
     );
   }
