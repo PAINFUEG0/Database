@@ -1,5 +1,5 @@
 /** @format */
 
-import { DatabaseServer } from "../src/server/databaseServer";
+import { DatabaseServer } from "../src/index.js";
 
 new DatabaseServer();

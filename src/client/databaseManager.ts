@@ -5,7 +5,7 @@ import { EventEmitter, once } from "events";
 import { Database } from "./database.js";
 import { setTimeout as sleep } from "node:timers/promises";
 
-import type { ChildEvents } from "../typings/types.js";
+import type { ChildEvents, Payload, Response } from "../typings/types.js";
 
 export class DatabaseManager extends EventEmitter<ChildEvents> {
   #auth: string;
@@ -67,12 +67,26 @@ export class DatabaseManager extends EventEmitter<ChildEvents> {
       });
   }
 
+  #requests = new Map();
+
   async connect() {
     const controller = new AbortController();
     try {
       this.#webSocket = new WebSocket(this.#socketAddress, { headers: { Authorization: this.#auth } });
       this.#webSocket.on("error", console.error);
       this.#webSocket.on("close", this.reconnect.bind(this));
+
+      this.#webSocket!.on("message", (message) => {
+        const data = JSON.parse(message.toString()) as Response;
+        this.#requests.get(data.requestId)?.resolve(data.data);
+        this.#requests.delete(data.requestId);
+      });
+
+      this.on("reconnected", () => {
+        console.log("reconnected");
+        this.#pending.map((fn) => fn());
+      });
+
       await Promise.race([
         once(this.#webSocket, "open", { signal: controller.signal }),
         once(this.#webSocket, "close", { signal: controller.signal })
@@ -83,6 +97,42 @@ export class DatabaseManager extends EventEmitter<ChildEvents> {
     } finally {
       controller.abort();
     }
+  }
+
+  #pending = <(() => void)[]>[];
+
+  async makeReq<D>(payload: Payload) {
+    const isOpen = this.isSocketOpen;
+
+    const request = {} as {
+      promise: Promise<D | null>;
+      reject: (err?: Error) => void;
+      resolve: (args: D | null) => void;
+    };
+
+    request.promise = new Promise<D | null>((resolve, reject) => {
+      request.resolve = resolve;
+      request.reject = reject;
+    });
+
+    this.#requests.set(payload.requestId, request);
+
+    isOpen
+      ? this.#webSocket!.send(JSON.stringify(payload))
+      : this.#pending.push(() => this.#webSocket!.send(JSON.stringify(payload)));
+
+    setTimeout(
+      () => {
+        if (!this.#requests.get(payload.requestId)) return;
+        request.reject(
+          isOpen ? new Error("Request timed out") : new Error("Was disconnected and could not reconnect !")
+        );
+        this.#requests.delete(payload.requestId);
+      },
+      isOpen ? 2500 : 10000
+    );
+
+    return request.promise;
   }
 
   createDatabase<T>(path: string): Database<T> {
