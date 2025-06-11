@@ -8,19 +8,12 @@ sourceMapSupport.install();
 
 const databaseManager = new DatabaseManager("ws://localhost:8080", "hello");
 
+databaseManager.on("error", (err) => console.error(err));
 databaseManager.on("disconnected", (address) => console.log(`Disconnected from ${address}`));
-// databaseManager.on("dropped", (...args) => console.log(`Dropped ${args.join(" | ")}`));
-databaseManager.on("connected", (address) => console.log(`Connected to ${address}`));
-// databaseManager.on("error", (err) => console.error(err));
 
 await databaseManager.connect();
-console.log("Manager ready !");
 
 const db = databaseManager.createDatabase<unknown>("test");
-
-console.log(`Websocket ping is ${await databaseManager.ping()} ms`);
-console.log(`Websocket ping is ${await databaseManager.ping()} ms`);
-console.log(`Websocket ping is ${await databaseManager.ping()} ms`);
 
 const count = 1e4;
 
