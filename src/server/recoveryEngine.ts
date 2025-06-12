@@ -29,7 +29,11 @@ export class RecoveryEngine {
     this.#log(`Running Recovery Engine`, "info");
 
     const start = Date.now();
-    const requests = readFileSync(this.#logFile, "utf-8").trim().split("\n").slice(-this.#requestCount);
+    const requests = readFileSync(this.#logFile, "utf-8")
+      .trim()
+      .split("\n")
+      .filter((req) => req.includes("\tSET,") || req.includes("\tDELETE,"))
+      .slice(-this.#requestCount);
 
     for (const request of requests) {
       const [, , path, method, key, value] = request.split(",\t");
@@ -40,7 +44,7 @@ export class RecoveryEngine {
       db[method === "DELETE" ? "delete" : "set"](key!, value!);
     }
 
-    this.#log(`RE completed running the last ${this.#requestCount} requests in ${Date.now() - start}ms`, "success");
+    this.#log(`RE completed running the last ${requests.length} requests in ${Date.now() - start}ms`, "success");
   }
 
   recordRequest(data: Payload) {
