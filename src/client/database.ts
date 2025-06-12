@@ -19,12 +19,12 @@ export class Database<T> {
       throw new Error("Websocket connection has already been closed !");
 
     const request = {} as {
-      promise: Promise<D | null>;
+      promise: Promise<D>;
       reject: (err?: Error) => void;
-      resolve: (args: D | null) => void;
+      resolve: (args: D) => void;
     };
 
-    request.promise = new Promise<D | null>((resolve, reject) => {
+    request.promise = new Promise<D>((resolve, reject) => {
       request.resolve = resolve;
       request.reject = reject;
     });
@@ -49,15 +49,15 @@ export class Database<T> {
     return this.#makeReq<T | null>({ requestId: randomUUID(), path: this.path, method: "GET", key });
   }
 
-  async all() {
-    return await this.#makeReq<T | null>({ requestId: randomUUID(), path: this.path, method: "ALL" });
-  }
-
   async set(key: string, value: T) {
     return this.#makeReq<T>({ requestId: randomUUID(), path: this.path, method: "SET", key, value: value });
   }
 
   async has(key: string) {
     return !!(await this.#makeReq<T | null>({ requestId: randomUUID(), path: this.path, method: "GET", key }));
+  }
+
+  async all() {
+    return await this.#makeReq<{ [key: string]: T }>({ requestId: randomUUID(), path: this.path, method: "ALL" });
   }
 }
