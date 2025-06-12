@@ -14,10 +14,6 @@ export class FileWriter {
   appendFile(path: string, data: string) {
     this.worker.postMessage({ path, data });
   }
-
-  terminate() {
-    this.worker.terminate();
-  }
 }
 
 if (!isMainThread) parentPort?.on("message", ({ path, data }) => appendFileSync(path, data));

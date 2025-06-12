@@ -26,20 +26,9 @@ export class DatabaseServer {
     this.#wss = new WebSocketServer({
       port,
       verifyClient: (info, callback) => {
-        // 1. Get authorization header
         const authHeader = info.req.headers["authorization"];
-
-        // 2. Validate presence
-        if (!authHeader) {
-          return callback(false, 401, "Unauthorized: No credentials provided");
-        }
-
-        // 3. Validate token (consider using constant-time comparison)
-        if (authHeader !== auth) {
-          return callback(false, 401, "Unauthorized: Invalid credentials");
-        }
-
-        // 4. Successful authentication
+        if (!authHeader) return callback(false, 401, "Unauthorized: No credentials provided");
+        if (authHeader !== auth) return callback(false, 401, "Unauthorized: Invalid credentials");
         callback(true);
       }
     });
@@ -47,10 +36,6 @@ export class DatabaseServer {
     this.#wss.on("listening", async () => this.#log(`Server started on port ${port}`, "success"));
 
     this.#wss.on("connection", (ws, req) => {
-      // const authHeader = req.headers["authorization"];
-      // if (!authHeader) return ws.close(4401, "Unauthorized: No credentials provided");
-      // if (authHeader !== auth) return ws.close(4401, "Unauthorized: Invalid credentials");
-
       ws.on("message", async (message) => this.#handleMessage(ws, message));
       ws.on("error", (err) => this.#log(JSON.stringify(err.stack), "error"));
       ws.on("close", () => this.#log(`Connection closed from ${req.socket.remoteAddress}`, "warn"));

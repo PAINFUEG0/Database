@@ -5,9 +5,9 @@ export interface ChildEvents {
   disconnected: [address: string];
 }
 
-export type Response = { data: null | string; requestId: string };
+export type Response = { data: any; requestId: string };
 
 export type Payload =
   | { path: string; method: "ALL"; requestId: string }
-  | { path: string; key: string; method: "GET" | "DELETE"; requestId: string }
-  | { key: string; path: string; value: any; method: "SET"; requestId: string };
+  | { path: string; method: "GET" | "DELETE"; key: string; requestId: string }
+  | { path: string; method: "SET"; key: string; value: any; requestId: string };
