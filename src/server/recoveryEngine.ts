@@ -41,7 +41,7 @@ export class RecoveryEngine {
       if (!path) continue;
 
       const db = this.#databases.get(path) || this.#databases.set(path!, new CoreDatabase({ path })).get(path)!;
-      db[method === "DELETE" ? "delete" : "set"](key!, value!);
+      db[method === "DELETE" ? "delete" : "set"](key!, value ? JSON.parse(value) : undefined);
     }
 
     this.#log(`RE completed running the last ${requests.length} requests in ${Date.now() - start}ms`, "success");
