@@ -51,7 +51,7 @@ export class RecoveryEngine {
     this.#fileWriter.appendFile(
       this.#logFile,
       //@ts-expect-error - Accessing <data>.key | <data>.value even when non-existant - Won't throw error !!!
-      `${Date.now()},\t${data.requestId},\t${data.path},\t${data.method},\t${data.key || ""},\t${data.value || ""}\n`
+      `${Date.now()},\t${data.requestId},\t${data.path},\t${data.method},\t${data.key || ""},\t${data.value ? JSON.stringify(data.value) : ""}\n`
     );
   }
 }
