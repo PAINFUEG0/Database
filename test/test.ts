@@ -1,8 +1,10 @@
 /** @format */
 
+import z from "zod";
 import sourceMapSupport from "source-map-support";
-import { DatabaseManager } from "../src/index.js";
-import { setTimeout } from "node:timers/promises";
+import { DatabaseManager, DatabaseServer } from "../src/index.js";
+
+new DatabaseServer(8080, "hello");
 
 sourceMapSupport.install();
 
@@ -13,11 +15,8 @@ databaseManager.on("disconnected", (address) => console.log(`Disconnected from $
 
 await databaseManager.connect();
 
-const db = databaseManager.createDatabase<unknown>("test");
+const db = databaseManager.createDatabase("test", z.number());
 
 const count = 1e4;
 
-for (let i = 0; i < count; ++i) {
-  console.log(await db.set(i.toString(), i));
-  await setTimeout(500);
-}
+for (let i = 0; i < count; ++i) console.log(await db.set(i.toString(), i));

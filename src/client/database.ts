@@ -2,15 +2,18 @@
 
 import { randomUUID } from "node:crypto";
 
+import type { ZodTypeAny } from "zod";
 import type { Payload } from "../typings/types.js";
 import type { DatabaseManager } from "./databaseManager.js";
 
 export class Database<T> {
   path: string;
+  #schema?: ZodTypeAny;
   manager: DatabaseManager;
 
-  constructor(manager: DatabaseManager, path: string) {
+  constructor(manager: DatabaseManager, path: string, schema?: ZodTypeAny) {
     this.path = path;
+    this.#schema = schema;
     this.manager = manager;
   }
 
@@ -50,6 +53,11 @@ export class Database<T> {
   }
 
   async set(key: string, value: T) {
+    if (this.#schema) {
+      const parse = this.#schema?.safeParse(value);
+      if (!parse.success) throw new Error(JSON.stringify(parse.error, null, 2));
+    }
+
     return this.#makeReq<T>({ requestId: randomUUID(), path: this.path, method: "SET", key, value: value });
   }
 
