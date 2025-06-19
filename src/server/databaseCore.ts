@@ -48,7 +48,7 @@ export class CoreDatabase<T> {
     this.#index = JSON.parse(readFileSync(this.#path + "/index.json", "utf-8"));
 
     for (const [fileName] of Object.entries(this.#index))
-      this.#cache.set(fileName, JSON.parse(readFileSync(this.#path + "/" + fileName, "utf-8")));
+      this.#cache.set(fileName, JSON.parse(readFileSync(`${this.#path}/${fileName}`, "utf-8")));
   }
 
   #searchIndexForKey(key: string) {
@@ -70,7 +70,7 @@ export class CoreDatabase<T> {
 
   #createFile() {
     const fileName = `data_${Object.keys(this.#index).length + 1}.json`;
-    writeFileSync(this.#path + "/" + fileName, "{}");
+    writeFileSync(`${this.#path}/${fileName}`, JSON.stringify({}));
     this.#index[fileName] = [];
     return fileName;
   }
