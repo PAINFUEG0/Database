@@ -41,7 +41,7 @@ export class CoreDatabase<T> {
 
   constructor(op: { path: string }) {
     this.#path = op.path;
-    existsSync(this.#path) || mkdirSync(this.#path, { recursive: true });
+    if (!existsSync(this.#path)) mkdirSync(this.#path, { recursive: true });
 
     if (!existsSync(this.#path + "/index.json")) writeFileSync(this.#path + "/index.json", "{}");
 
@@ -108,7 +108,7 @@ export class CoreDatabase<T> {
 
     const file = res ? res.fileName : this.#getSuitableFile();
 
-    res?.keysInFile?.includes(key) || (this.#index[file] ||= []).push(key);
+    if (!res?.keysInFile?.includes(key)) (this.#index[file] ||= []).push(key);
 
     const data = this.#cache.get(file) ?? this.#cache.set(file, {}).get(file)!;
 

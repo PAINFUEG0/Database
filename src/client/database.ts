@@ -2,8 +2,8 @@
 
 import { randomUUID } from "node:crypto";
 
+import type { Payload } from "../typings/types.js";
 import type { DatabaseManager } from "./databaseManager.js";
-import { Payload } from "../typings/types.js";
 
 export class Database<T> {
   path: string;
