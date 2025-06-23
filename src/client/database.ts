@@ -1,7 +1,6 @@
 /** @format */
 
 import { randomUUID } from "node:crypto";
-
 import type { ZodTypeAny } from "zod";
 import type { Payload } from "../typings/types.js";
 import type { DatabaseManager } from "./databaseManager.js";
@@ -17,9 +16,11 @@ export class Database<T> {
     this.manager = manager;
   }
 
-  async #makeReq<D>(payload: Payload) {
+  async #makeReq<D>(payload: Payload): Promise<D> {
     if (this.manager.webSocket?.readyState !== WebSocket.OPEN)
-      throw new Error("Websocket connection has already been closed !");
+      throw new Error("WebSocket connection has already been closed!");
+
+    let timeout: NodeJS.Timeout;
 
     const request = {} as {
       promise: Promise<D>;
@@ -28,17 +29,24 @@ export class Database<T> {
     };
 
     request.promise = new Promise<D>((resolve, reject) => {
-      request.resolve = resolve;
-      request.reject = reject;
+      request.resolve = (args: D) => {
+        clearTimeout(timeout);
+        this.manager.requests.delete(payload.requestId);
+        resolve(args);
+      };
+
+      request.reject = (err?: Error) => {
+        clearTimeout(timeout);
+        this.manager.requests.delete(payload.requestId);
+        reject(err);
+      };
     });
 
     this.manager.requests.set(payload.requestId, request);
     this.manager.webSocket!.send(JSON.stringify(payload));
 
-    setTimeout(() => {
-      if (!this.manager.requests.get(payload.requestId)) return;
+    timeout = setTimeout(() => {
       request.reject(new Error("Request timed out"));
-      this.manager.requests.delete(payload.requestId);
     }, 2500);
 
     return request.promise;
@@ -54,11 +62,11 @@ export class Database<T> {
 
   async set(key: string, value: T) {
     if (this.#schema) {
-      const parse = this.#schema?.safeParse(value);
+      const parse = this.#schema.safeParse(value);
       if (!parse.success) throw new Error(JSON.stringify(parse.error, null, 2));
     }
 
-    return this.#makeReq<T>({ requestId: randomUUID(), path: this.path, method: "SET", key, value: value });
+    return this.#makeReq<T>({ requestId: randomUUID(), path: this.path, method: "SET", key, value });
   }
 
   async has(key: string) {
@@ -66,6 +74,10 @@ export class Database<T> {
   }
 
   async all() {
-    return await this.#makeReq<{ [key: string]: T }>({ requestId: randomUUID(), path: this.path, method: "ALL" });
+    return this.#makeReq<{ [key: string]: T }>({
+      requestId: randomUUID(),
+      path: this.path,
+      method: "ALL",
+    });
   }
 }
