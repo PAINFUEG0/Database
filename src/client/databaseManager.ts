@@ -25,9 +25,8 @@ export class DatabaseManager extends EventEmitter<ChildEvents> {
     await new Promise((resolve) => this.webSocket?.once("open", resolve));
 
     this.webSocket!.on("message", (message) => {
-      const data = JSON.parse(message.toString()) as Response;
+      const data = <Response>JSON.parse(message.toString());
       this.requests.get(data.requestId)?.resolve(data.data);
-      this.requests.delete(data.requestId);
     });
     this.webSocket.on("error", (err) => this.emit("error", err));
     this.webSocket.once("close", () => this.emit("disconnected", this.socketAddress));

@@ -1,6 +1,7 @@
 /** @format */
 
 import { randomUUID } from "node:crypto";
+
 import type { ZodTypeAny } from "zod";
 import type { Payload } from "../typings/types.js";
 import type { DatabaseManager } from "./databaseManager.js";
@@ -16,7 +17,7 @@ export class Database<T> {
     this.manager = manager;
   }
 
-  async #makeReq<D>(payload: Payload): Promise<D> {
+  async #makeReq<D>(payload: Payload) {
     if (this.manager.webSocket?.readyState !== WebSocket.OPEN)
       throw new Error("WebSocket connection has already been closed!");
 
@@ -29,15 +30,15 @@ export class Database<T> {
     };
 
     request.promise = new Promise<D>((resolve, reject) => {
-      request.resolve = (args: D) => {
-        clearTimeout(timeout);
+      request.resolve = (arg: D) => {
         this.manager.requests.delete(payload.requestId);
-        resolve(args);
+        clearTimeout(timeout);
+        resolve(arg);
       };
 
       request.reject = (err?: Error) => {
-        clearTimeout(timeout);
         this.manager.requests.delete(payload.requestId);
+        clearTimeout(timeout);
         reject(err);
       };
     });
@@ -45,19 +46,9 @@ export class Database<T> {
     this.manager.requests.set(payload.requestId, request);
     this.manager.webSocket!.send(JSON.stringify(payload));
 
-    timeout = setTimeout(() => {
-      request.reject(new Error("Request timed out"));
-    }, 2500);
+    timeout = setTimeout(() => request.reject(new Error("Request timed out")), 2500);
 
     return request.promise;
-  }
-
-  async delete(key: string) {
-    return this.#makeReq<null>({ requestId: randomUUID(), path: this.path, method: "DELETE", key });
-  }
-
-  async get(key: string) {
-    return this.#makeReq<T | null>({ requestId: randomUUID(), path: this.path, method: "GET", key });
   }
 
   async set(key: string, value: T) {
@@ -69,15 +60,19 @@ export class Database<T> {
     return this.#makeReq<T>({ requestId: randomUUID(), path: this.path, method: "SET", key, value });
   }
 
-  async has(key: string) {
-    return !!(await this.#makeReq<T | null>({ requestId: randomUUID(), path: this.path, method: "GET", key }));
+  async delete(key: string) {
+    return this.#makeReq<null>({ requestId: randomUUID(), path: this.path, method: "DELETE", key });
+  }
+
+  async get(key: string) {
+    return this.#makeReq<T | null>({ requestId: randomUUID(), path: this.path, method: "GET", key });
   }
 
   async all() {
-    return this.#makeReq<{ [key: string]: T }>({
-      requestId: randomUUID(),
-      path: this.path,
-      method: "ALL",
-    });
+    return this.#makeReq<{ [key: string]: T }>({ requestId: randomUUID(), path: this.path, method: "ALL" });
+  }
+
+  async has(key: string) {
+    return !!(await this.#makeReq<T | null>({ requestId: randomUUID(), path: this.path, method: "GET", key }));
   }
 }
