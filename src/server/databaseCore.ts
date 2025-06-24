@@ -130,8 +130,6 @@ export class CoreDatabase<T> {
     const file = res.fileName;
     const data = this.#cache.get(file)!;
 
-    const deleted = data[key]!;
-
     delete data![key];
 
     this.#index[file] = this.#index[file]!.filter((k) => k !== key);
@@ -139,6 +137,6 @@ export class CoreDatabase<T> {
     this.#writeQueue.add(file);
     this.#debouncedWrite();
 
-    return deleted;
+    return null;
   }
 }
