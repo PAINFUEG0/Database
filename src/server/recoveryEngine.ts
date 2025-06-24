@@ -3,7 +3,7 @@
 import { Logger } from "pastel-logger";
 import { existsSync, readFileSync } from "fs";
 import { CoreDatabase } from "./coreDatabase.js";
-import { FileWriter } from "./threadedFileWriter.js";
+import { ThreadedFileWriter } from "./threadedFileWriter.js";
 
 import type { Payload } from "../typings/types.js";
 
@@ -11,7 +11,7 @@ export class RecoveryEngine {
   #logFile: string;
   #requestCount = 1000;
   #logger = new Logger();
-  #fileWriter = new FileWriter();
+  #fileWriter = new ThreadedFileWriter();
   #databases: Map<string, CoreDatabase<unknown>>;
 
   constructor(logFile: string, databases: Map<string, CoreDatabase<unknown>>) {

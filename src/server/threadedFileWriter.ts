@@ -4,7 +4,7 @@ import { appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Worker, isMainThread, parentPort } from "worker_threads";
 
-export class FileWriter {
+export class ThreadedFileWriter {
   worker: Worker;
   constructor() {
     this.worker = new Worker(fileURLToPath(import.meta.url));
