@@ -2,7 +2,7 @@
 
 import { Logger } from "pastel-logger";
 import { existsSync, readFileSync } from "fs";
-import { CoreDatabase } from "./databaseCore.js";
+import { CoreDatabase } from "./coreDatabase.js";
 import { FileWriter } from "./threadedFileWriter.js";
 
 import type { Payload } from "../typings/types.js";

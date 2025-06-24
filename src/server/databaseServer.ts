@@ -3,7 +3,7 @@
 import { join } from "node:path";
 import { WebSocketServer } from "ws";
 import { Logger } from "pastel-logger";
-import { CoreDatabase } from "./databaseCore.js";
+import { CoreDatabase } from "./coreDatabase.js";
 import { RecoveryEngine } from "./recoveryEngine.js";
 
 import type { RawData, WebSocket } from "ws";
