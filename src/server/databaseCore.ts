@@ -39,8 +39,8 @@ export class CoreDatabase<T> {
     this.#isWriting = false;
   }
 
-  constructor(op: { path: string }) {
-    this.#path = op.path;
+  constructor(path: string) {
+    this.#path = path;
     if (!existsSync(this.#path)) mkdirSync(this.#path, { recursive: true });
 
     if (!existsSync(this.#path + "/index.json")) writeFileSync(this.#path + "/index.json", "{}");

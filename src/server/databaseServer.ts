@@ -49,8 +49,7 @@ export class DatabaseServer {
     data.path = join("./", "storage", data.path);
 
     const db =
-      this.#databases.get(data.path) ||
-      this.#databases.set(data.path, new CoreDatabase({ path: data.path })).get(data.path)!;
+      this.#databases.get(data.path) || this.#databases.set(data.path, new CoreDatabase(data.path)).get(data.path)!;
 
     switch (data.method) {
       case "ALL":
