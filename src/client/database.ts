@@ -68,6 +68,18 @@ export class Database<T> {
     return this.#makeReq<T | null>({ requestId: randomUUID(), path: this.path, method: "GET", key });
   }
 
+  async getMany(keys: string[]) {
+    return this.#makeReq<T[]>({ requestId: randomUUID(), path: this.path, method: "GET_MANY", keys });
+  }
+
+  async setMany(data: { key: string; value: T }[]) {
+    return this.#makeReq<T[]>({ requestId: randomUUID(), path: this.path, method: "SET_MANY", data });
+  }
+
+  async deleteMany(keys: string[]) {
+    return this.#makeReq<null>({ requestId: randomUUID(), path: this.path, method: "DELETE_MANY", keys });
+  }
+
   async all() {
     return this.#makeReq<{ [key: string]: T }>({ requestId: randomUUID(), path: this.path, method: "ALL" });
   }

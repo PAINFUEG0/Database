@@ -67,6 +67,20 @@ export class DatabaseServer {
       case "SET":
         ws.send(JSON.stringify({ data: db.set(data.key, data.value), requestId: data.requestId }));
         break;
+
+      case "GET_MANY":
+        ws.send(JSON.stringify({ data: data.keys.map((key) => db.get(key)), requestId: data.requestId }));
+        break;
+
+      case "DELETE_MANY":
+        ws.send(JSON.stringify({ data: data.keys.map((key) => db.delete(key)), requestId: data.requestId }));
+        break;
+
+      case "SET_MANY":
+        ws.send(
+          JSON.stringify({ data: data.data.map(({ key, value }) => db.set(key, value)), requestId: data.requestId })
+        );
+        break;
     }
 
     this.#recoveryEngine.recordRequest(data);
