@@ -51,32 +51,32 @@ export class DatabaseServer {
     const db = this.#databases.get(PL.path) || this.#databases.set(PL.path, new CoreDatabase(PL.path)).get(PL.path)!;
 
     switch (PL.method) {
-      case "ALL":
-        ws.send(JSON.stringify({ data: db.all(), requestId: PL.requestId }));
-        break;
-
       case "GET":
         ws.send(JSON.stringify({ data: db.get(PL.key), requestId: PL.requestId }));
+        break;
+
+      case "GET_MANY":
+        ws.send(JSON.stringify({ data: db.getMany(PL.keys), requestId: PL.requestId }));
         break;
 
       case "SET":
         ws.send(JSON.stringify({ data: db.set(PL.key, PL.value), requestId: PL.requestId }));
         break;
 
-      case "DELETE":
-        ws.send(JSON.stringify({ data: (db.delete(PL.key), null), requestId: PL.requestId }));
+      case "SET_MANY":
+        ws.send(JSON.stringify({ data: db.setMany(PL.data), requestId: PL.requestId }));
         break;
 
-      case "GET_MANY":
-        ws.send(JSON.stringify({ data: PL.keys.map((key) => db.get(key)), requestId: PL.requestId }));
+      case "DELETE":
+        ws.send(JSON.stringify({ data: db.delete(PL.key), requestId: PL.requestId }));
         break;
 
       case "DELETE_MANY":
-        ws.send(JSON.stringify({ data: PL.keys.map((key) => db.delete(key)), requestId: PL.requestId }));
+        ws.send(JSON.stringify({ data: db.deleteMany(PL.keys), requestId: PL.requestId }));
         break;
 
-      case "SET_MANY":
-        ws.send(JSON.stringify({ data: PL.data.map(({ key, value }) => db.set(key, value)), requestId: PL.requestId }));
+      case "ALL":
+        ws.send(JSON.stringify({ data: db.all(), requestId: PL.requestId }));
         break;
     }
 

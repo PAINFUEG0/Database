@@ -51,17 +51,15 @@ export class Database<T> {
     return request.promise;
   }
 
-  async set(key: string, value: T) {
+  #validate(value: T) {
     if (this.#schema) {
       const parse = this.#schema.safeParse(value);
       if (!parse.success) throw new Error(JSON.stringify(parse.error, null, 2));
     }
-
-    return this.#makeReq<T>({ requestId: randomUUID(), path: this.path, method: "SET", key, value });
   }
 
-  async delete(key: string) {
-    return this.#makeReq<null>({ requestId: randomUUID(), path: this.path, method: "DELETE", key });
+  async has(key: string) {
+    return !!(await this.get(key));
   }
 
   async get(key: string) {
@@ -69,22 +67,28 @@ export class Database<T> {
   }
 
   async getMany(keys: string[]) {
-    return this.#makeReq<T[]>({ requestId: randomUUID(), path: this.path, method: "GET_MANY", keys });
+    return this.#makeReq<(T | null)[]>({ requestId: randomUUID(), path: this.path, method: "GET_MANY", keys });
+  }
+
+  async set(key: string, value: T) {
+    this.#validate(value);
+    return this.#makeReq<T>({ requestId: randomUUID(), path: this.path, method: "SET", key, value });
   }
 
   async setMany(data: { key: string; value: T }[]) {
+    data.forEach(({ value }) => this.#validate(value));
     return this.#makeReq<T[]>({ requestId: randomUUID(), path: this.path, method: "SET_MANY", data });
   }
 
+  async delete(key: string) {
+    return this.#makeReq<boolean>({ requestId: randomUUID(), path: this.path, method: "DELETE", key });
+  }
+
   async deleteMany(keys: string[]) {
-    return this.#makeReq<null>({ requestId: randomUUID(), path: this.path, method: "DELETE_MANY", keys });
+    return this.#makeReq<boolean[]>({ requestId: randomUUID(), path: this.path, method: "DELETE_MANY", keys });
   }
 
   async all() {
     return this.#makeReq<{ [key: string]: T }>({ requestId: randomUUID(), path: this.path, method: "ALL" });
-  }
-
-  async has(key: string) {
-    return !!(await this.#makeReq<T | null>({ requestId: randomUUID(), path: this.path, method: "GET", key }));
   }
 }

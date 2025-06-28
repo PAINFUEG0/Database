@@ -1,60 +1,32 @@
 /** @format */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import * as fs from "node:fs";
 
 export class CoreDatabase<T> {
-  #path!: string;
-  #maxKeysInFile = 100;
-  #index!: { [fileName: string]: string[] };
-  #cache = new Map<string, { [key: string]: T }>();
-
+  #path: string;
   #isWriting = false;
-  #writeQueue = new Set<string>();
-
-  #timer?: NodeJS.Timeout;
-
   #debounceCount = 0;
   #debounceTime = 250;
+  #maxKeysInFile = 100;
+  #timer?: NodeJS.Timeout;
   #maxDebounceCount = 250;
-
-  #debouncedWrite() {
-    this.#debounceCount++;
-
-    if (this.#debounceCount >= this.#maxDebounceCount) return (this.#debounceCount = 0), this.#write();
-
-    this.#timer?.refresh();
-
-    this.#timer ||= setTimeout(() => (this.#isWriting ? this.#debouncedWrite() : this.#write()), this.#debounceTime);
-  }
-
-  #write() {
-    const _ = [...this.#writeQueue];
-    this.#writeQueue.clear();
-
-    this.#isWriting = true;
-
-    for (const file of _) writeFileSync(`${this.#path}/${file}`, JSON.stringify(this.#cache.get(file)));
-    writeFileSync(`${this.#path}/index.json`, JSON.stringify(this.#index));
-
-    this.#isWriting = false;
-  }
+  #writeQueue = new Set<string>();
+  #index: { [fileName: string]: string[] };
+  #cache = new Map<string, { [key: string]: T }>();
 
   constructor(path: string) {
     this.#path = path;
-    if (!existsSync(this.#path)) mkdirSync(this.#path, { recursive: true });
+    if (!fs.existsSync(this.#path)) fs.mkdirSync(this.#path, { recursive: true });
 
-    if (!existsSync(this.#path + "/index.json")) writeFileSync(this.#path + "/index.json", "{}");
+    if (!fs.existsSync(this.#path + "/index.json")) fs.writeFileSync(this.#path + "/index.json", "{}");
 
-    this.#index = JSON.parse(readFileSync(this.#path + "/index.json", "utf-8"));
+    this.#index = JSON.parse(fs.readFileSync(this.#path + "/index.json", "utf-8"));
 
     for (const [fileName] of Object.entries(this.#index))
-      this.#cache.set(fileName, JSON.parse(readFileSync(`${this.#path}/${fileName}`, "utf-8")));
+      this.#cache.set(fileName, JSON.parse(fs.readFileSync(`${this.#path}/${fileName}`, "utf-8")));
   }
 
-  #searchIndexForKey(key: string) {
-    for (const [fileName, keysInFile] of Object.entries(this.#index))
-      if (keysInFile.includes(key)) return { fileName, keysInFile };
-  }
+  // ----------------------------------------------- Private Helper Functions -----------------------------------------------
 
   #getLastFile() {
     const files = Object.keys(this.#index);
@@ -68,9 +40,19 @@ export class CoreDatabase<T> {
     return numberOfKeysInFile;
   }
 
+  #searchIndexForKey(key: string) {
+    for (const [fileName, keysInFile] of Object.entries(this.#index))
+      if (keysInFile.includes(key)) return { fileName, keysInFile };
+  }
+
+  #lookforSpaciousFile() {
+    for (const [fileName, keysInFile] of Object.entries(this.#index))
+      if (keysInFile.length < this.#maxKeysInFile) return fileName;
+  }
+
   #createFile() {
     const fileName = `data_${Object.keys(this.#index).length + 1}.json`;
-    writeFileSync(`${this.#path}/${fileName}`, JSON.stringify({}));
+    fs.writeFileSync(`${this.#path}/${fileName}`, JSON.stringify({}));
     this.#index[fileName] = [];
     return fileName;
   }
@@ -81,26 +63,37 @@ export class CoreDatabase<T> {
     else return lastFile;
   }
 
-  #lookforSpaciousFile() {
-    for (const [fileName, keysInFile] of Object.entries(this.#index))
-      if (keysInFile.length < this.#maxKeysInFile) return fileName;
+  #write() {
+    const _ = [...this.#writeQueue];
+    this.#writeQueue.clear();
+
+    this.#isWriting = true;
+
+    for (const file of _) fs.writeFileSync(`${this.#path}/${file}`, JSON.stringify(this.#cache.get(file)));
+    fs.writeFileSync(`${this.#path}/index.json`, JSON.stringify(this.#index));
+
+    this.#isWriting = false;
   }
 
-  all() {
-    const data = this.#cache.values().reduce(
-      (prev, curr) => {
-        for (const [key, value] of Object.entries(curr)) prev[key] = value;
-        return prev;
-      },
-      {} as { [key: string]: T }
-    );
+  #debouncedWrite() {
+    this.#debounceCount++;
 
-    return data;
+    if (this.#debounceCount >= this.#maxDebounceCount) return (this.#debounceCount = 0), this.#write();
+
+    this.#timer?.refresh();
+
+    this.#timer ||= setTimeout(() => (this.#isWriting ? this.#debouncedWrite() : this.#write()), this.#debounceTime);
   }
+
+  // ------------------------------------------------------------------------------------------------------------------------
 
   get(key: string) {
     const res = this.#searchIndexForKey(key);
     return res ? (this.#cache.get(res.fileName)![key] as T) : null;
+  }
+
+  getMany(keys: string[]) {
+    return keys.map((key) => this.get(key));
   }
 
   set(key: string, value: T) {
@@ -122,10 +115,14 @@ export class CoreDatabase<T> {
     return value;
   }
 
+  setMany(data: { key: string; value: T }[]) {
+    return data.map(({ key, value }) => this.set(key, value));
+  }
+
   delete(key: string) {
     const res = this.#searchIndexForKey(key);
 
-    if (!res) return null;
+    if (!res) return false;
 
     const file = res.fileName;
     const data = this.#cache.get(file)!;
@@ -137,6 +134,20 @@ export class CoreDatabase<T> {
     this.#writeQueue.add(file);
     this.#debouncedWrite();
 
-    return null;
+    return true;
+  }
+
+  deleteMany(keys: string[]) {
+    return keys.map((key) => this.delete(key));
+  }
+
+  all() {
+    return this.#cache.values().reduce(
+      (prev, curr) => {
+        for (const [key, value] of Object.entries(curr)) prev[key] = value;
+        return prev;
+      },
+      {} as { [key: string]: T }
+    );
   }
 }
