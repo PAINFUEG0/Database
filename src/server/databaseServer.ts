@@ -44,45 +44,42 @@ export class DatabaseServer {
   }
 
   async #handleMessage(ws: WebSocket, message: RawData) {
-    const data = JSON.parse(message.toString()) as Payload;
+    const PL = JSON.parse(message.toString()) as Payload;
 
-    data.path = join("./", "storage", data.path);
+    PL.path = join("./", "storage", PL.path);
 
-    const db =
-      this.#databases.get(data.path) || this.#databases.set(data.path, new CoreDatabase(data.path)).get(data.path)!;
+    const db = this.#databases.get(PL.path) || this.#databases.set(PL.path, new CoreDatabase(PL.path)).get(PL.path)!;
 
-    switch (data.method) {
+    switch (PL.method) {
       case "ALL":
-        ws.send(JSON.stringify({ data: db.all(), requestId: data.requestId }));
+        ws.send(JSON.stringify({ data: db.all(), requestId: PL.requestId }));
         break;
 
       case "GET":
-        ws.send(JSON.stringify({ data: db.get(data.key), requestId: data.requestId }));
-        break;
-
-      case "DELETE":
-        ws.send(JSON.stringify({ data: (db.delete(data.key), null), requestId: data.requestId }));
+        ws.send(JSON.stringify({ data: db.get(PL.key), requestId: PL.requestId }));
         break;
 
       case "SET":
-        ws.send(JSON.stringify({ data: db.set(data.key, data.value), requestId: data.requestId }));
+        ws.send(JSON.stringify({ data: db.set(PL.key, PL.value), requestId: PL.requestId }));
+        break;
+
+      case "DELETE":
+        ws.send(JSON.stringify({ data: (db.delete(PL.key), null), requestId: PL.requestId }));
         break;
 
       case "GET_MANY":
-        ws.send(JSON.stringify({ data: data.keys.map((key) => db.get(key)), requestId: data.requestId }));
+        ws.send(JSON.stringify({ data: PL.keys.map((key) => db.get(key)), requestId: PL.requestId }));
         break;
 
       case "DELETE_MANY":
-        ws.send(JSON.stringify({ data: data.keys.map((key) => db.delete(key)), requestId: data.requestId }));
+        ws.send(JSON.stringify({ data: PL.keys.map((key) => db.delete(key)), requestId: PL.requestId }));
         break;
 
       case "SET_MANY":
-        ws.send(
-          JSON.stringify({ data: data.data.map(({ key, value }) => db.set(key, value)), requestId: data.requestId })
-        );
+        ws.send(JSON.stringify({ data: PL.data.map(({ key, value }) => db.set(key, value)), requestId: PL.requestId }));
         break;
     }
 
-    this.#recoveryEngine.recordRequest(data);
+    this.#recoveryEngine.recordRequest(PL);
   }
 }
