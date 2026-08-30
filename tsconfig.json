@@ -1,0 +1,53 @@
+{
+  "compilerOptions": {
+    /* Language & Target */
+    "lib": ["ESNext"],
+    "types": ["node"],
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+
+    /* Modules & Resolution */
+    "rootDir": "./src",
+    "module": "nodenext",
+    "resolveJsonModule": true,
+    "allowUmdGlobalAccess": false,
+    "moduleResolution": "nodenext",
+    "resolvePackageJsonExports": true,
+    "resolvePackageJsonImports": true,
+    "allowArbitraryExtensions": false,
+    "allowImportingTsExtensions": true,
+    "noUncheckedSideEffectImports": true,
+    "rewriteRelativeImportExtensions": true,
+
+    /* Emit */
+    "newLine": "lf",
+    "outDir": "./app",
+    "declaration": true,
+    "noEmitOnError": true,
+    "removeComments": true,
+    "inlineSourceMap": true,
+
+    /* JS Interop */
+    "allowJs": false,
+    "checkJs": false,
+
+    /* Type Checking - Strictness */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "useUnknownInCatchVariables": false,
+    "noPropertyAccessFromIndexSignature": false,
+
+    /* Type Checking - Correctness */
+    "noUnusedLocals": true,
+    "noImplicitReturns": false,
+    "noImplicitOverride": true,
+    "noUnusedParameters": true,
+    "allowUnreachableCode": false,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Build Behavior */
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}

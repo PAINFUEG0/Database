@@ -1,0 +1,7 @@
+/lib
+/app
+/.env
+*.tgz
+/storage
+logs.csv
+/node_modules
