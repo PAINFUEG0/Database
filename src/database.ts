@@ -2,6 +2,7 @@
 
 import * as fs from "node:fs";
 import { resolve } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 
 export type SerializableDataTypes =
   | string
@@ -15,15 +16,15 @@ export class Database<T extends SerializableDataTypes> {
   #debounceCount = 0;
   #writeQueue = new Set<string>();
 
-  start = Date.now();
+  #start = Date.now();
 
   #keysPerFile: number;
   #debounceTime: number;
   #maxDebounceCount: number;
 
   #path: string;
-  journal: number;
-  #timer?: ReturnType<typeof setTimeout>;
+  #journal: number;
+  #timer?: NodeJS.Timeout;
 
   #isKeymapDirty = false;
   #keymap: { [K: string]: Set<string> } = {};
@@ -40,26 +41,7 @@ export class Database<T extends SerializableDataTypes> {
 
     this.#loadKeymap();
     this.#loadFilesIntoCache();
-    this.journal = fs.openSync(resolve(this.#path, ".wal"), "a");
-  }
-
-  // ----------------------------------------------- Private Helper Functions -----------------------------------------------
-
-  #loadKeymap(): void {
-    const keymap = resolve(this.#path, "keymap.json");
-    if (!fs.existsSync(keymap)) fs.writeFileSync(keymap, JSON.stringify((this.#keymap = {})));
-    else
-      this.#keymap = Object.fromEntries(
-        Object.entries(JSON.parse(fs.readFileSync(keymap, "utf-8"))).map(([_, K]) => {
-          for (const key of K as string[]) this.#reverseKeymap[key] = _;
-          return [_, new Set(K as string[])];
-        })
-      );
-  }
-
-  #loadFilesIntoCache(): void {
-    for (const [fileName] of Object.entries(this.#keymap))
-      this.#cache.set(fileName, JSON.parse(fs.readFileSync(resolve(this.#path, fileName), "utf-8")));
+    this.#journal = fs.openSync(resolve(this.#path, ".wal"), "a");
   }
 
   #lookforSpaciousFile(): string | null {
@@ -81,23 +63,35 @@ export class Database<T extends SerializableDataTypes> {
     await fs.promises.rename(resolve(this.#path, `${file}.tmp`), resolve(this.#path, file));
   }
 
+  #loadKeymap(): void {
+    const keymap = resolve(this.#path, "keymap.json");
+    if (!fs.existsSync(keymap)) fs.writeFileSync(keymap, JSON.stringify((this.#keymap = {})));
+    else
+      this.#keymap = Object.fromEntries(
+        Object.entries(JSON.parse(fs.readFileSync(keymap, "utf-8"))).map(([_, K]) => {
+          for (const key of K as string[]) this.#reverseKeymap[key] = _;
+          return [_, new Set(K as string[])];
+        })
+      );
+  }
+
+  #loadFilesIntoCache(): void {
+    for (const [fileName] of Object.entries(this.#keymap))
+      this.#cache.set(fileName, JSON.parse(fs.readFileSync(resolve(this.#path, fileName), "utf-8")));
+  }
+
   async #write(): Promise<void> {
     const _isKeymapDirty = this.#isKeymapDirty;
     const _queue = [...this.#writeQueue];
-
     let somethingFailed = false;
-
     this.#isKeymapDirty = false;
     this.#writeQueue.clear();
     this.#debounceCount = 0;
 
     const tasks = [..._queue.map((file) => ({ file, content: JSON.stringify(this.#cache.get(file)) }))];
+    const keymap = Object.fromEntries(Object.entries(this.#keymap).map(([k, v]) => [k, [...v]]));
 
-    if (_isKeymapDirty)
-      tasks.push({
-        file: "keymap.json",
-        content: JSON.stringify(Object.fromEntries(Object.entries(this.#keymap).map(([k, v]) => [k, [...v]])))
-      });
+    if (_isKeymapDirty) tasks.push({ file: "keymap.json", content: JSON.stringify(keymap) });
 
     this.#isWriting = true;
     await Promise.all(
@@ -121,8 +115,6 @@ export class Database<T extends SerializableDataTypes> {
     this.#timer ||= setTimeout(() => (this.#isWriting ? this.#debouncedWrite() : this.#write()), this.#debounceTime);
   }
 
-  // ------------------------------------------------------------------------------------------------------------------------
-
   async has(key: string): Promise<boolean> {
     return !!this.#reverseKeymap[key];
   }
@@ -132,7 +124,8 @@ export class Database<T extends SerializableDataTypes> {
     return res ? (this.#cache.get(res)![key] as T) : null;
   }
 
-  async set(key: string, value: T): Promise<T> {
+  async set(key: string, value: T, internal = false): Promise<T> {
+    const timestamp = this.#start + performance.now();
     const res = this.#reverseKeymap[key];
 
     if (res) {
@@ -148,26 +141,77 @@ export class Database<T extends SerializableDataTypes> {
       this.#writeQueue.add(file);
     }
 
-    fs.writeSync(
-      this.journal,
-      JSON.stringify({ timestamp: this.start + performance.now(), op: "set", key, value }) + "\n"
-    );
-    await this.#debouncedWrite();
+    !internal && fs.writeSync(this.#journal, JSON.stringify({ timestamp, op: "set", key, value }) + "\n");
+    !internal && (await this.#debouncedWrite());
     return value;
   }
 
-  async delete(key: string): Promise<boolean> {
+  async delete(key: string, internal = false): Promise<boolean> {
+    const timestamp = this.#start + performance.now();
     const res = this.#reverseKeymap[key];
 
     if (!res) return false;
 
-    fs.writeSync(this.journal, JSON.stringify({ timestamp: this.start + performance.now(), op: "delete", key }) + "\n");
     delete this.#cache.get(res)![key];
     delete this.#reverseKeymap[key];
     this.#keymap[res]!.delete(key);
     this.#isKeymapDirty = true;
     this.#writeQueue.add(res);
-    await this.#debouncedWrite();
+
+    !internal && fs.writeSync(this.#journal, JSON.stringify({ timestamp, op: "delete", key }) + "\n");
+    !internal && (await this.#debouncedWrite());
     return true;
+  }
+
+  async getMany(keys: string[]): Promise<(T | null)[]> {
+    return await Promise.all(keys.map(this.get));
+  }
+
+  async setMany(data: { key: string; value: T }[]): Promise<T[]> {
+    const _: string[] = [];
+
+    const __ = await Promise.all(
+      data.map(async ({ key, value }) => {
+        _.push(JSON.stringify({ timestamp: this.#start + performance.now(), op: "set", key, value }));
+        return await this.set(key, value, true);
+      })
+    );
+
+    fs.writeSync(this.#journal, _.join("\n") + "\n");
+    await this.#debouncedWrite();
+    return __;
+  }
+
+  async deleteMany(keys: string[]): Promise<boolean[]> {
+    const _: string[] = [];
+
+    const __ = await Promise.all(
+      keys.map(async (K) => {
+        const res = await this.delete(K, true);
+        _.push(JSON.stringify({ timestamp: this.#start + performance.now(), op: "delete", key: K }));
+        return res;
+      })
+    );
+
+    fs.writeSync(this.#journal, _.join("\n") + "\n");
+    await this.#debouncedWrite();
+    return __;
+  }
+
+  async all() {
+    let _ = {};
+    for (const K of this.#cache.keys()) _ = { ..._, ...this.#cache.get(K) };
+    return _;
+  }
+
+  async nuke(): Promise<void> {
+    this.#timer?.close();
+    await sleep(this.#debounceTime + 500);
+    fs.rmSync(this.#path, { recursive: true, force: true });
+    fs.mkdirSync(this.#path, { recursive: true });
+    this.#isKeymapDirty = false;
+    this.#reverseKeymap = {};
+    this.#loadKeymap();
+    this.#loadFilesIntoCache();
   }
 }
