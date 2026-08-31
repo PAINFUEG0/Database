@@ -2,6 +2,9 @@
 /app
 /.env
 *.tgz
+*.wal
 /storage
 logs.csv
+data_*.json
+keymap.json
 /node_modules

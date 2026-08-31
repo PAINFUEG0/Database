@@ -76,49 +76,63 @@ export class Database<T extends SerializableDataTypes> {
     return fileName;
   }
 
-  #writeAtomically(file: string, content: string): void {
-    fs.writeFileSync(resolve(this.#path, `${file}.tmp`), content);
-    fs.renameSync(resolve(this.#path, `${file}.tmp`), resolve(this.#path, file));
+  async #writeAtomic(file: string, content: string): Promise<void> {
+    await fs.promises.writeFile(resolve(this.#path, `${file}.tmp`), content);
+    await fs.promises.rename(resolve(this.#path, `${file}.tmp`), resolve(this.#path, file));
   }
 
-  #write(): void {
-    const _ = [...this.#writeQueue];
-    const __ = this.#isKeymapDirty;
+  async #write(): Promise<void> {
+    const _isKeymapDirty = this.#isKeymapDirty;
+    const _queue = [...this.#writeQueue];
+
+    let somethingFailed = false;
+
     this.#isKeymapDirty = false;
     this.#writeQueue.clear();
     this.#debounceCount = 0;
 
+    const tasks = [..._queue.map((file) => ({ file, content: JSON.stringify(this.#cache.get(file)) }))];
+
+    if (_isKeymapDirty)
+      tasks.push({
+        file: "keymap.json",
+        content: JSON.stringify(Object.fromEntries(Object.entries(this.#keymap).map(([k, v]) => [k, [...v]])))
+      });
+
     this.#isWriting = true;
-    _.forEach((file) => this.#writeAtomically(file, JSON.stringify(this.#cache.get(file))));
-    __ &&
-      this.#writeAtomically(
-        "keymap.json",
-        JSON.stringify(
-          Object.fromEntries(Object.entries(this.#keymap).map(([fileName, keys]) => [fileName, Array.from(keys)]))
-        )
-      );
+    await Promise.all(
+      tasks.map((_) =>
+        this.#writeAtomic(_.file, _.content).catch(() => {
+          this.#isKeymapDirty = _.file === "keymap.json";
+          this.#writeQueue.add(_.file);
+          somethingFailed = true;
+        })
+      )
+    );
     this.#isWriting = false;
+
+    if (somethingFailed) this.#debouncedWrite();
   }
 
-  #debouncedWrite(): void {
+  async #debouncedWrite(): Promise<void> {
     this.#debounceCount++;
-    if (this.#debounceCount >= this.#maxDebounceCount) return this.#write();
+    if (this.#debounceCount >= this.#maxDebounceCount && !this.#isWriting) return await this.#write();
     this.#timer?.refresh();
     this.#timer ||= setTimeout(() => (this.#isWriting ? this.#debouncedWrite() : this.#write()), this.#debounceTime);
   }
 
   // ------------------------------------------------------------------------------------------------------------------------
 
-  has(key: string): boolean {
+  async has(key: string): Promise<boolean> {
     return !!this.#reverseKeymap[key];
   }
 
-  get(key: string): T | null {
+  async get(key: string): Promise<T | null> {
     const res = this.#reverseKeymap[key];
     return res ? (this.#cache.get(res)![key] as T) : null;
   }
 
-  set(key: string, value: T): T {
+  async set(key: string, value: T): Promise<T> {
     const res = this.#reverseKeymap[key];
 
     if (res) {
@@ -138,11 +152,11 @@ export class Database<T extends SerializableDataTypes> {
       this.journal,
       JSON.stringify({ timestamp: this.start + performance.now(), op: "set", key, value }) + "\n"
     );
-    this.#debouncedWrite();
+    await this.#debouncedWrite();
     return value;
   }
 
-  delete(key: string): boolean {
+  async delete(key: string): Promise<boolean> {
     const res = this.#reverseKeymap[key];
 
     if (!res) return false;
@@ -153,7 +167,7 @@ export class Database<T extends SerializableDataTypes> {
     this.#keymap[res]!.delete(key);
     this.#isKeymapDirty = true;
     this.#writeQueue.add(res);
-    this.#debouncedWrite();
+    await this.#debouncedWrite();
     return true;
   }
 }
