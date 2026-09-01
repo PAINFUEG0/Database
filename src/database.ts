@@ -23,7 +23,7 @@ export class Database<T extends SerializableDataTypes> {
   #maxDebounceCount: number;
 
   #path: string;
-  #journal: number;
+  #journal!: number;
   #timer?: NodeJS.Timeout;
 
   #isKeymapDirty = false;
@@ -37,6 +37,10 @@ export class Database<T extends SerializableDataTypes> {
     this.#debounceTime = typeof op !== "string" && !isNaN(op.debounceTime!) ? op.debounceTime! : 250;
     this.#maxDebounceCount = typeof op !== "string" && !isNaN(op.maxDebounceCount!) ? op.maxDebounceCount! : 500;
 
+    this.init();
+  }
+
+  init(): void {
     if (!fs.existsSync(this.#path)) fs.mkdirSync(this.#path, { recursive: true });
 
     this.#loadKeymap();
@@ -115,16 +119,7 @@ export class Database<T extends SerializableDataTypes> {
     this.#timer ||= setTimeout(() => (this.#isWriting ? this.#debouncedWrite() : this.#write()), this.#debounceTime);
   }
 
-  async has(key: string): Promise<boolean> {
-    return !!this.#reverseKeymap[key];
-  }
-
-  async get(key: string): Promise<T | null> {
-    const res = this.#reverseKeymap[key];
-    return res ? (this.#cache.get(res)![key] as T) : null;
-  }
-
-  async set(key: string, value: T, internal = false): Promise<T> {
+  async #set(key: string, value: T, internal: boolean): Promise<T> {
     const timestamp = this.#start + performance.now();
     const res = this.#reverseKeymap[key];
 
@@ -146,7 +141,7 @@ export class Database<T extends SerializableDataTypes> {
     return value;
   }
 
-  async delete(key: string, internal = false): Promise<boolean> {
+  async #delete(key: string, internal: boolean): Promise<boolean> {
     const timestamp = this.#start + performance.now();
     const res = this.#reverseKeymap[key];
 
@@ -163,6 +158,23 @@ export class Database<T extends SerializableDataTypes> {
     return true;
   }
 
+  async has(key: string): Promise<boolean> {
+    return !!this.#reverseKeymap[key];
+  }
+
+  async get(key: string): Promise<T | null> {
+    const res = this.#reverseKeymap[key];
+    return res ? (this.#cache.get(res)![key] as T) : null;
+  }
+
+  async set(key: string, value: T): Promise<T> {
+    return await this.#set(key, value, false);
+  }
+
+  async delete(key: string): Promise<boolean> {
+    return await this.#delete(key, false);
+  }
+
   async getMany(keys: string[]): Promise<(T | null)[]> {
     return await Promise.all(keys.map(this.get));
   }
@@ -173,7 +185,7 @@ export class Database<T extends SerializableDataTypes> {
     const __ = await Promise.all(
       data.map(async ({ key, value }) => {
         _.push(JSON.stringify({ timestamp: this.#start + performance.now(), op: "set", key, value }));
-        return await this.set(key, value, true);
+        return await this.#set(key, value, true);
       })
     );
 
@@ -187,7 +199,7 @@ export class Database<T extends SerializableDataTypes> {
 
     const __ = await Promise.all(
       keys.map(async (K) => {
-        const res = await this.delete(K, true);
+        const res = await this.#delete(K, true);
         _.push(JSON.stringify({ timestamp: this.#start + performance.now(), op: "delete", key: K }));
         return res;
       })
@@ -205,13 +217,20 @@ export class Database<T extends SerializableDataTypes> {
   }
 
   async nuke(): Promise<void> {
+    if (this.#isWriting) return await sleep(500).then(() => this.nuke());
+
     this.#timer?.close();
-    await sleep(this.#debounceTime + 500);
-    fs.rmSync(this.#path, { recursive: true, force: true });
-    fs.mkdirSync(this.#path, { recursive: true });
-    this.#isKeymapDirty = false;
+    this.#timer = undefined;
+
+    this.#isWriting = false;
+    this.#debounceCount = 0;
+    this.#writeQueue.clear();
+
+    this.#cache.clear();
     this.#reverseKeymap = {};
-    this.#loadKeymap();
-    this.#loadFilesIntoCache();
+    this.#isKeymapDirty = false;
+
+    fs.rmSync(this.#path, { recursive: true, force: true });
+    this.init();
   }
 }
