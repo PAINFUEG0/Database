@@ -102,7 +102,7 @@ export class Database<T extends SerializableDataTypes> {
       tasks.map((_) =>
         this.#writeAtomic(_.file, _.content).catch(() => {
           this.#isKeymapDirty = _.file === "keymap.json";
-          this.#writeQueue.add(_.file);
+          if (_.file !== "keymap.json") this.#writeQueue.add(_.file);
           somethingFailed = true;
         })
       )
@@ -176,7 +176,7 @@ export class Database<T extends SerializableDataTypes> {
   }
 
   async getMany(keys: string[]): Promise<(T | null)[]> {
-    return await Promise.all(keys.map(this.get));
+    return await Promise.all(keys.map((K) => this.get(K)));
   }
 
   async setMany(data: { key: string; value: T }[]): Promise<T[]> {
@@ -210,10 +210,10 @@ export class Database<T extends SerializableDataTypes> {
     return __;
   }
 
-  async all() {
-    let _ = {};
-    for (const K of this.#cache.keys()) _ = { ..._, ...this.#cache.get(K) };
-    return _;
+  all(): { [K: string]: T } {
+    const result = {};
+    for (const data of this.#cache.values()) Object.assign(result, data);
+    return result;
   }
 
   async nuke(): Promise<void> {
@@ -231,6 +231,7 @@ export class Database<T extends SerializableDataTypes> {
     this.#isKeymapDirty = false;
 
     fs.rmSync(this.#path, { recursive: true, force: true });
+    fs.closeSync(this.#journal);
     this.init();
   }
 }
