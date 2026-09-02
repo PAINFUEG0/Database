@@ -3,6 +3,7 @@
 /.env
 *.tgz
 *.wal
+test.mts
 /storage
 logs.csv
 data_*.json
