@@ -1,9 +1,9 @@
 /** @format */
 
 import { resolve } from "path";
-import { Database } from "./database";
+import { Database } from "../database";
 
-import type { Payload } from "./types";
+import type { Payload } from "../types";
 import type { WebSocket, RawData } from "ws";
 
 const databases = new Map<string, Database<any>>();
