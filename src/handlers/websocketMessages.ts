@@ -8,17 +8,17 @@ import type { WebSocket, RawData } from "ws";
 
 const databases = new Map<string, Database<any>>();
 
-export function handleIncomingWebsocketMessage(this: WebSocket, data: RawData) {
+export async function handleIncomingWebsocketMessage(this: WebSocket, data: RawData) {
   const PL: Payload = JSON.parse(data.toString());
 
   let { path, requestId } = PL;
   path = resolve("./", "storage", path);
 
-  const db = databases.get(path) || databases.set(PL.path, new Database(path)).get(path)!;
+  const db = databases.get(path) || databases.set(path, new Database(path)).get(path)!;
 
   try {
     //@ts-expect-error loose typings
-    const data = handlers[PL.method](db, PL);
+    const data = await handlers[PL.method](db, PL);
     this.send(JSON.stringify({ requestId, data }));
   } catch (error) {
     this.send(JSON.stringify({ requestId, error }));
