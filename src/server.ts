@@ -3,10 +3,10 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import { WebSocketServer } from "ws";
-import { handleRestRequest } from "./handlers/restRequests";
 import { createServer as createHttpServer } from "node:http";
+import { handleRestRequest } from "./handlers/restRequests.js";
 import { createServer as createHttpsServer } from "node:https";
-import { handleIncomingWebsocketMessage } from "./handlers/websocketMessages";
+import { handleIncomingWebsocketMessage } from "./handlers/websocketMessages.js";
 
 export type SSLOptions = { key: string; cert: string; rejectUnauthorized?: boolean };
 

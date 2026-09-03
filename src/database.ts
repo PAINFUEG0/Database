@@ -4,9 +4,7 @@ import * as fs from "node:fs";
 import { resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
-import type { SerializableDataTypes } from "./types";
-
-export class Database<T extends SerializableDataTypes> {
+export class Database<T = unknown> {
   #isWriting = false;
   #debounceCount = 0;
   #writeQueue = new Set<string>();

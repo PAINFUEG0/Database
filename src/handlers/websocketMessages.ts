@@ -1,7 +1,7 @@
 /** @format */
 
 import { resolve } from "path";
-import { Database } from "../database";
+import { Database } from "../database.js";
 
 import type { Payload } from "../types";
 import type { WebSocket, RawData } from "ws";
