@@ -7,13 +7,15 @@
     "lib": ["ESNext"],
     "types": ["node"],
 
+    "rootDir": "src",
+    "outDir": "dist",
+
     "strict": true,
 
-    "noEmit": true,
+    "noEmit": false,
     "noUncheckedIndexedAccess": true,
 
     "noUnusedLocals": true,
     "noUnusedParameters": true
-  },
-  "include": ["src/**/*.ts"]
+  }
 }

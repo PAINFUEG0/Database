@@ -1,5 +1,6 @@
 /lib
 /app
+/dist
 /.env
 *.tgz
 *.wal
