@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import { resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
-export class Database<T = unknown> {
+export class CoreDatabase<T = unknown> {
   #isWriting = false;
   #debounceCount = 0;
   #writeQueue = new Set<string>();

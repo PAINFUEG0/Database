@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 
 import { type z } from "zod";
-import type { DatabaseManager } from "./manager.js";
+import type { DatabaseManager } from "./databaseManager.js";
 import type { DatabaseClientRequest, PayloadOverloads } from "./types.js";
 
 export class DatabaseClient<T> {

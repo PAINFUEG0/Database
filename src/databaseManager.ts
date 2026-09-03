@@ -1,7 +1,7 @@
 /** @format */
 
 import { WebSocket } from "ws";
-import { DatabaseClient } from "./client.js";
+import { DatabaseClient } from "./databaseClient.js";
 import { EventEmitter, once } from "node:events";
 
 import type { z } from "zod";

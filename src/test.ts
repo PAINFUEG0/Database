@@ -1,21 +1,14 @@
 /** @format */
 
-import { DatabaseServer, DatabaseManager } from "./index.js";
+import z from "zod";
+import { Database } from "./index.js";
 
-new DatabaseServer({ port: 1000, auth: "secret" });
+new Database().construct("server", { port: 5000, auth: "secret" });
 
-const manager = new DatabaseManager({ url: "localhost", port: 1000, auth: "secret" });
+const client = new Database().construct("client", { url: "localhost", port: 5000, auth: "secret" });
+await client.connect();
+const db = client.createDatabase("test", z.number());
+console.log(await db.set("test", 1));
 
-await manager.connect();
-
-const db = manager.createDatabase("test");
-
-console.log(await db.all());
-
-console.log(await db.set("test", "test"));
-
-console.log(await db.get("test"));
-
-console.log(await db.delete("test"));
-
-console.log(await db.has("test"));
+const DB = new Database().construct<string>("standalone", { path: "./storage" });
+console.log(await DB.set("test", "1"));
