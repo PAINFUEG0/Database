@@ -4,12 +4,7 @@ import * as fs from "node:fs";
 import { resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
-export type SerializableDataTypes =
-  | string
-  | number
-  | boolean
-  | SerializableDataTypes[]
-  | { [key: string]: SerializableDataTypes };
+import type { SerializableDataTypes } from "./types";
 
 export class Database<T extends SerializableDataTypes> {
   #isWriting = false;

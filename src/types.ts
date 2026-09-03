@@ -1,5 +1,12 @@
 /** @format */
 
+export type SerializableDataTypes =
+  | number
+  | string
+  | boolean
+  | SerializableDataTypes[]
+  | { [K: string]: SerializableDataTypes };
+
 export type Prettify<T> = { [K in keyof T]: T[K] } & {};
 
 export type BasePayload = { path: string; requestId: string };
