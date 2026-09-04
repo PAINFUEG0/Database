@@ -20,4 +20,6 @@ export type DatabaseClientRequest<T> = {
   reject: (err?: Error) => void;
 };
 
+export type SSLOptions = { key: string; cert: string; rejectUnauthorized?: boolean };
+
 export type DatabaseServerResponse<T = unknown> = { requestId: string; data: T } | { requestId: string; error: string };

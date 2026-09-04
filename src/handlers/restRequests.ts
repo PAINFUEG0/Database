@@ -2,7 +2,7 @@
 
 import type { Server, IncomingMessage, ServerResponse } from "node:http";
 
-export function handleRestRequest(this: Server, req: IncomingMessage, res: ServerResponse) {
+export function handleRestRequests(this: Server, req: IncomingMessage, res: ServerResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE");

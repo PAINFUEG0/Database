@@ -4,11 +4,14 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import { WebSocketServer } from "ws";
 import { createServer as createHttpServer } from "node:http";
-import { handleRestRequest } from "./handlers/restRequests.js";
+import { handleRestRequests } from "./handlers/restRequests.js";
 import { createServer as createHttpsServer } from "node:https";
-import { handleIncomingWebsocketMessage } from "./handlers/websocketMessages.js";
+import { handleIncomingWebsocketMessages } from "./handlers/websocketMessages.js";
 
-export type SSLOptions = { key: string; cert: string; rejectUnauthorized?: boolean };
+import type { SSLOptions } from "./types.js";
+import type { KeyValueStore } from "./store.js";
+
+export const databases = new Map<string, KeyValueStore<any>>();
 
 export class DatabaseServer {
   #log: (data: string) => void;
@@ -26,7 +29,7 @@ export class DatabaseServer {
 
     const ssl = key && cert;
 
-    const server = ssl ? createHttpsServer({ key, cert }, handleRestRequest) : createHttpServer(handleRestRequest);
+    const server = ssl ? createHttpsServer({ key, cert }, handleRestRequests) : createHttpServer(handleRestRequests);
 
     const wss = new WebSocketServer({
       server,
@@ -42,7 +45,7 @@ export class DatabaseServer {
       wss.on("connection", (ws, req) => {
         this.#log(`Established a new connection from ${req.socket.remoteAddress}`);
 
-        ws.on("message", handleIncomingWebsocketMessage.bind(ws));
+        ws.on("message", handleIncomingWebsocketMessages.bind(ws));
         ws.on("error", (err) => console.error(JSON.stringify(err.stack)));
         ws.on("close", () => this.#log(`Connection closed from ${req.socket.remoteAddress}`));
       });
