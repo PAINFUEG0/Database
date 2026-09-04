@@ -1,10 +1,10 @@
 /** @format */
 
 import { resolve } from "path";
-import { KeyValueStore } from "../store.js";
-import { databases } from "../databaseServer.js";
+import { databases } from "./databaseServer.js";
+import { KeyValueStore } from "./keyValueStore.js";
 
-import type { Payload } from "../types";
+import type { Payload } from "../types.js";
 import type { WebSocket, RawData } from "ws";
 
 export async function handleIncomingWebsocketMessages(this: WebSocket, data: RawData) {

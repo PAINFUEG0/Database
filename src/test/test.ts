@@ -1,7 +1,7 @@
 /** @format */
 
 import z from "zod";
-import { KeyValueStore, DatabaseClient, DatabaseServer } from "./index.js";
+import { KeyValueStore, DatabaseClient, DatabaseServer } from "../index.js";
 
 new DatabaseServer({ port: 5000, auth: "secret" });
 

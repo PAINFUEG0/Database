@@ -1,5 +1,5 @@
 /** @format */
 
-export * from "./store";
-export * from "./databaseServer";
-export * from "./databaseClient";
+export * from "./server/keyValueStore";
+export * from "./server/databaseServer";
+export * from "./client/databaseClient";

@@ -4,12 +4,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import { WebSocketServer } from "ws";
 import { createServer as createHttpServer } from "node:http";
-import { handleRestRequests } from "./handlers/restRequests.js";
 import { createServer as createHttpsServer } from "node:https";
-import { handleIncomingWebsocketMessages } from "./handlers/websocketMessages.js";
+import { handleRestRequests } from "../handlers/restRequests.js";
+import { handleIncomingWebsocketMessages } from "./handleWebsocketMessages.js";
 
-import type { SSLOptions } from "./types.js";
-import type { KeyValueStore } from "./store.js";
+import type { SSLOptions } from "../types.js";
+import type { KeyValueStore } from "./keyValueStore.js";
 
 export const databases = new Map<string, KeyValueStore<any>>();
 

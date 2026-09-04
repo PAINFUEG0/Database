@@ -2,9 +2,9 @@
 
 import { randomUUID } from "node:crypto";
 
-import { type z } from "zod";
+import type { z } from "zod";
 import type { DatabaseClient } from "./databaseClient.js";
-import type { DatabaseClientRequest, PayloadOverloads } from "./types.js";
+import type { DatabaseClientRequest, PayloadOverloads } from "../types.js";
 
 export class Database<T> {
   path: string;

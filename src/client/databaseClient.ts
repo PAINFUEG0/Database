@@ -1,11 +1,11 @@
 /** @format */
 
 import { WebSocket } from "ws";
-import { EventEmitter, once } from "node:events";
 import { Database } from "./database.js";
+import { EventEmitter, once } from "node:events";
 
 import type { z } from "zod";
-import type { DatabaseClientRequest, DatabaseServerResponse } from "./types.js";
+import type { DatabaseClientRequest, DatabaseServerResponse } from "../types.js";
 
 type ConstructOptions = { url: string; auth: string } | { url: string; port: number; auth: string; secure?: boolean };
 
