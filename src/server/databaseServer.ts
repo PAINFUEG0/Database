@@ -3,9 +3,9 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import { WebSocketServer } from "ws";
+import { handleRestRequests } from "./handleRestRequests.js";
 import { createServer as createHttpServer } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
-import { handleRestRequests } from "../handlers/restRequests.js";
 import { handleIncomingWebsocketMessages } from "./handleWebsocketMessages.js";
 
 import type { SSLOptions } from "../types.js";

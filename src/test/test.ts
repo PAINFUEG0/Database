@@ -11,4 +11,8 @@ await client.connect();
 
 const db = client.createDatabase("test", z.number());
 
-const DB = new KeyValueStore<string>({ path: "./storage" });
+console.log(await db.all());
+
+const DB = new KeyValueStore<string>({ path: "./storage/test2" });
+
+console.log(await DB.all());

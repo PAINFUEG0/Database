@@ -1,5 +1,5 @@
 /** @format */
 
-export * from "./server/keyValueStore";
-export * from "./server/databaseServer";
-export * from "./client/databaseClient";
+export * from "./server/keyValueStore.js";
+export * from "./server/databaseServer.js";
+export * from "./client/databaseClient.js";
