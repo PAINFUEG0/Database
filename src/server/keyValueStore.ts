@@ -38,9 +38,23 @@ export class KeyValueStore<T = unknown> {
   init(): void {
     if (!fs.existsSync(this.#path)) fs.mkdirSync(this.#path, { recursive: true });
 
+    for (const file of fs.readdirSync(this.#path))
+      file.endsWith(".tmp") && fs.renameSync(resolve(this.#path, file), resolve(this.#path, file.replace(".tmp", "")));
+
     this.#loadKeymap();
     this.#loadFilesIntoCache();
     this.#journal = fs.openSync(this.#journalPath, "a");
+    this.replayJournal();
+    this.#truncateJournal();
+  }
+
+  replayJournal(): void {
+    for (const line of fs.readFileSync(this.#journalPath, "utf-8").split("\n")) {
+      if (!line) continue;
+      const _ = JSON.parse(line);
+      if (_.op === "set") this.#set(_.key, _.value, true);
+      else if (_.op === "delete") this.#delete(_.key, true);
+    }
   }
 
   #lookforSpaciousFile(): string | null {
