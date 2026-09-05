@@ -232,8 +232,8 @@ export class KeyValueStore<T = unknown> {
     this.#reverseKeymap = {};
     this.#isKeymapDirty = false;
 
-    fs.rmSync(this.#path, { recursive: true, force: true });
     fs.closeSync(this.#journal);
+    fs.rmSync(this.#path, { recursive: true, force: true });
     this.init();
   }
 }
