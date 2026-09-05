@@ -16,3 +16,8 @@ console.log(await db.all());
 const DB = new KeyValueStore<string>({ path: "./storage/test2" });
 
 console.log(await DB.all());
+
+for (let i = 0; i < 100000; i++) {
+  await DB.set(`key${i}`, `value${i}`);
+  console.log(i);
+}

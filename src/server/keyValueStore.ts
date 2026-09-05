@@ -17,6 +17,7 @@ export class KeyValueStore<T = unknown> {
 
   #path: string;
   #journal!: number;
+  #journalPath!: string;
   #timer?: NodeJS.Timeout;
 
   #isKeymapDirty = false;
@@ -26,6 +27,7 @@ export class KeyValueStore<T = unknown> {
 
   constructor(op: string | { path: string; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }) {
     this.#path = resolve(typeof op === "string" ? op : op.path);
+    this.#journalPath = resolve(this.#path, ".write-ahead-log.jsonl");
     this.#keysPerFile = typeof op !== "string" && !isNaN(op.keysPerFile!) ? op.keysPerFile! : 100;
     this.#debounceTime = typeof op !== "string" && !isNaN(op.debounceTime!) ? op.debounceTime! : 250;
     this.#maxDebounceCount = typeof op !== "string" && !isNaN(op.maxDebounceCount!) ? op.maxDebounceCount! : 500;
@@ -38,7 +40,7 @@ export class KeyValueStore<T = unknown> {
 
     this.#loadKeymap();
     this.#loadFilesIntoCache();
-    this.#journal = fs.openSync(resolve(this.#path, ".wal"), "a");
+    this.#journal = fs.openSync(this.#journalPath, "a");
   }
 
   #lookforSpaciousFile(): string | null {
@@ -103,6 +105,13 @@ export class KeyValueStore<T = unknown> {
     this.#isWriting = false;
 
     if (somethingFailed) this.#debouncedWrite();
+    else this.#truncateJournal();
+  }
+
+  #truncateJournal(): void {
+    fs.closeSync(this.#journal);
+    fs.closeSync(fs.openSync(this.#journalPath, "w"));
+    this.#journal = fs.openSync(this.#journalPath, "a");
   }
 
   async #debouncedWrite(): Promise<void> {
