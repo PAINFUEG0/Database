@@ -1,0 +1,1061 @@
+<!-- @format -->
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>basewire — key-value storage over WebSocket</title>
+
+    <meta
+      name="description"
+      content="basewire is a lightweight key-value database with a WebSocket client, server, and optional Zod validation."
+    />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Geist", "Inter", "sans-serif"],
+              mono: ["Geist Mono", "monospace"]
+            },
+            colors: {
+              background: "#050505",
+              foreground: "#fafafa",
+              muted: "#a1a1aa",
+              border: "#27272a",
+              card: "#0a0a0a"
+            }
+          }
+        }
+      };
+    </script>
+
+    <style>
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        background: #050505;
+        color: #fafafa;
+      }
+
+      ::selection {
+        background: #fafafa;
+        color: #050505;
+      }
+
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: #050505;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: #27272a;
+        border-radius: 999px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: #3f3f46;
+      }
+
+      .grid-bg {
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+        background-size: 64px 64px;
+      }
+
+      .grid-fade {
+        mask-image: linear-gradient(to bottom, black 0%, black 40%, transparent 100%);
+        -webkit-mask-image: linear-gradient(to bottom, black 0%, black 40%, transparent 100%);
+      }
+
+      .hero-glow {
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 65%);
+      }
+
+      .noise {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 50;
+        opacity: 0.025;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+      }
+
+      .terminal-line {
+        opacity: 0;
+        transform: translateY(4px);
+        animation: terminal-in 0.35s ease forwards;
+      }
+
+      @keyframes terminal-in {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .caret {
+        display: inline-block;
+        width: 7px;
+        height: 15px;
+        margin-left: 3px;
+        background: #fafafa;
+        vertical-align: -2px;
+        animation: blink 1s steps(1) infinite;
+      }
+
+      @keyframes blink {
+        50% {
+          opacity: 0;
+        }
+      }
+
+      .tab[data-active="true"] {
+        color: #fafafa;
+        background: #18181b;
+      }
+
+      .tab[data-active="true"]::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #fafafa;
+      }
+
+      .code-keyword {
+        color: #fafafa;
+      }
+
+      .code-muted {
+        color: #71717a;
+      }
+
+      .code-string {
+        color: #d4d4d8;
+      }
+
+      .code-number {
+        color: #a1a1aa;
+      }
+
+      .code-comment {
+        color: #52525b;
+      }
+
+      .code-type {
+        color: #e4e4e7;
+      }
+    </style>
+  </head>
+
+  <body class="bg-background min-h-screen font-sans antialiased">
+    <div class="noise"></div>
+
+    <!-- ========================================================= -->
+    <!-- NAV -->
+    <!-- ========================================================= -->
+
+    <header class="border-border/80 bg-background/80 sticky top-0 z-40 border-b backdrop-blur-xl">
+      <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <a href="#top" class="group flex items-center gap-2 font-mono text-sm font-medium tracking-tight">
+          <span class="border-border flex h-6 w-6 items-center justify-center rounded-md border bg-zinc-900">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 2.5 4.5 6.7v10.6l7.5 4.2 7.5-4.2V6.7L12 2.5Z" />
+              <path d="M12 2.5v19M4.5 6.7 19.5 17.3M19.5 6.7 4.5 17.3" />
+            </svg>
+          </span>
+
+          <span>basewire</span>
+        </a>
+
+        <nav class="hidden items-center gap-6 text-sm text-zinc-400 md:flex">
+          <a href="#quickstart" class="transition-colors hover:text-white"> Quickstart </a>
+
+          <a href="#reference" class="transition-colors hover:text-white"> API </a>
+
+          <a href="#validation" class="transition-colors hover:text-white"> Validation </a>
+
+          <a href="https://github.com" class="transition-colors hover:text-white"> GitHub </a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button
+            data-copy="npm install basewire"
+            class="copy-btn border-border hidden rounded-md border px-3 py-1.5 font-mono text-xs text-zinc-400 transition-colors hover:border-zinc-600 hover:text-white sm:block"
+          >
+            npm i basewire
+          </button>
+
+          <a
+            href="#quickstart"
+            class="rounded-md bg-white px-3.5 py-1.5 text-sm font-medium text-black transition-colors hover:bg-zinc-200"
+          >
+            Get started
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- ========================================================= -->
+    <!-- HERO -->
+    <!-- ========================================================= -->
+
+    <main id="top">
+      <section class="border-border relative overflow-hidden border-b">
+        <div class="grid-bg grid-fade absolute inset-x-0 top-0 h-[680px] opacity-70"></div>
+
+        <div class="hero-glow absolute top-[-240px] left-1/2 h-[600px] w-[900px] -translate-x-1/2"></div>
+
+        <div class="relative mx-auto max-w-6xl px-4 pt-24 pb-24 text-center sm:px-6 sm:pt-32">
+          <div
+            class="border-border mx-auto mb-7 flex w-fit items-center gap-2 rounded-full border bg-zinc-950 px-3 py-1 font-mono text-[11px] text-zinc-400"
+          >
+            <span class="h-1.5 w-1.5 rounded-full bg-white"></span>
+            Node.js + TypeScript
+          </div>
+
+          <h1
+            class="mx-auto max-w-4xl text-4xl font-semibold tracking-[-0.04em] text-balance text-white sm:text-6xl lg:text-7xl"
+          >
+            A tiny database.
+            <br />
+
+            <span class="text-zinc-500"> On the other end of a socket. </span>
+          </h1>
+
+          <p class="mx-auto mt-7 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg">
+            basewire is a lightweight key-value database for Node.js. Run a server, connect with a typed client, and
+            read or write values over WebSocket.
+          </p>
+
+          <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <a
+              href="#quickstart"
+              class="inline-flex h-10 items-center justify-center rounded-md bg-white px-5 text-sm font-medium text-black transition-colors hover:bg-zinc-200"
+            >
+              Start building
+              <span class="ml-2">→</span>
+            </a>
+
+            <a
+              href="#reference"
+              class="border-border inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-medium text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+            >
+              API reference
+            </a>
+          </div>
+
+          <!-- Terminal -->
+          <div
+            class="border-border mx-auto mt-16 max-w-3xl overflow-hidden rounded-xl border bg-[#080808] text-left shadow-2xl shadow-black"
+          >
+            <div class="border-border flex h-10 items-center border-b px-4">
+              <div class="flex gap-1.5">
+                <span class="h-2.5 w-2.5 rounded-full bg-zinc-800"></span>
+                <span class="h-2.5 w-2.5 rounded-full bg-zinc-800"></span>
+                <span class="h-2.5 w-2.5 rounded-full bg-zinc-800"></span>
+              </div>
+
+              <span class="mr-auto ml-auto translate-x-[-30px] font-mono text-[11px] text-zinc-600"> app.ts </span>
+            </div>
+
+            <pre
+              class="overflow-x-auto p-5 font-mono text-[12px] leading-6 sm:p-7 sm:text-[13px]"
+            ><code><span class="code-muted">import</span> { <span class="code-type">DatabaseClient</span> } <span class="code-muted">from</span> <span class="code-string">"basewire"</span>;
+
+<span class="code-keyword">const</span> client = <span class="code-keyword">new</span> <span class="code-type">DatabaseClient</span>({
+  url: <span class="code-string">"localhost"</span>,
+  port: <span class="code-number">8080</span>,
+  auth: process.env.DB_AUTH,
+});
+
+<span class="code-keyword">await</span> client.connect();
+
+<span class="code-keyword">const</span> users = client.createDatabase(<span class="code-string">"users"</span>);
+
+<span class="code-keyword">await</span> users.set(<span class="code-string">"u_1"</span>, {
+  name: <span class="code-string">"Ada"</span>,
+  role: <span class="code-string">"admin"</span>
+});
+
+<span class="code-muted">→</span> <span class="code-comment">connected to ws://localhost:8080</span><span class="caret"></span></code></pre>
+          </div>
+
+          <div
+            class="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 font-mono text-[11px] text-zinc-600"
+          >
+            <span>WebSocket</span>
+            <span class="h-1 w-1 rounded-full bg-zinc-800"></span>
+            <span>Async API</span>
+            <span class="h-1 w-1 rounded-full bg-zinc-800"></span>
+            <span>TypeScript</span>
+            <span class="h-1 w-1 rounded-full bg-zinc-800"></span>
+            <span>Optional Zod</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- VALUE PROPOSITION -->
+      <!-- ========================================================= -->
+
+      <section class="border-border border-b">
+        <div class="mx-auto max-w-6xl px-4 py-24 sm:px-6">
+          <div class="grid gap-12 lg:grid-cols-[1fr_2fr]">
+            <div>
+              <div class="font-mono text-xs tracking-widest text-zinc-600 uppercase">Why basewire</div>
+
+              <h2 class="mt-4 max-w-sm text-2xl font-semibold tracking-tight sm:text-3xl">
+                Small surface area.
+                <span class="text-zinc-500"> Intentionally. </span>
+              </h2>
+            </div>
+
+            <div class="border-border grid border-l sm:grid-cols-3">
+              <article class="border-border border-b px-6 py-6 sm:border-r sm:border-b-0">
+                <div class="border-border mb-5 flex h-8 w-8 items-center justify-center rounded-md border bg-zinc-950">
+                  <span class="font-mono text-xs">01</span>
+                </div>
+
+                <h3 class="font-medium">One socket</h3>
+
+                <p class="mt-2 text-sm leading-6 text-zinc-500">
+                  Connect once and create as many isolated database handles as you need.
+                </p>
+              </article>
+
+              <article class="border-border border-b px-6 py-6 sm:border-r sm:border-b-0">
+                <div class="border-border mb-5 flex h-8 w-8 items-center justify-center rounded-md border bg-zinc-950">
+                  <span class="font-mono text-xs">02</span>
+                </div>
+
+                <h3 class="font-medium">Typed values</h3>
+
+                <p class="mt-2 text-sm leading-6 text-zinc-500">
+                  TypeScript generics keep your database values typed from creation through reads and writes.
+                </p>
+              </article>
+
+              <article class="px-6 py-6">
+                <div class="border-border mb-5 flex h-8 w-8 items-center justify-center rounded-md border bg-zinc-950">
+                  <span class="font-mono text-xs">03</span>
+                </div>
+
+                <h3 class="font-medium">Optional validation</h3>
+
+                <p class="mt-2 text-sm leading-6 text-zinc-500">
+                  Attach a Zod schema when you need runtime validation. Nothing extra when you don't.
+                </p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- QUICKSTART -->
+      <!-- ========================================================= -->
+
+      <section id="quickstart" class="border-border border-b">
+        <div class="mx-auto max-w-6xl px-4 py-24 sm:px-6">
+          <div class="mb-14">
+            <div class="font-mono text-xs tracking-widest text-zinc-600 uppercase">Quickstart</div>
+
+            <h2 class="mt-4 text-3xl font-semibold tracking-tight">From zero to storage.</h2>
+
+            <p class="mt-3 max-w-xl text-sm leading-6 text-zinc-500">
+              Install the package, start the server, and connect a client. That's the whole setup.
+            </p>
+          </div>
+
+          <div class="space-y-16">
+            <!-- INSTALL -->
+            <div class="grid gap-8 lg:grid-cols-[220px_1fr]">
+              <div>
+                <div class="font-mono text-xs text-zinc-600">01</div>
+
+                <h3 class="mt-2 font-medium">Install</h3>
+
+                <p class="mt-2 text-sm leading-6 text-zinc-500">Add basewire to your Node.js project.</p>
+              </div>
+
+              <div class="border-border overflow-hidden rounded-lg border">
+                <div class="border-border flex items-center justify-between border-b px-4 py-2.5">
+                  <span class="font-mono text-[11px] text-zinc-600"> terminal </span>
+
+                  <button
+                    data-copy="npm install basewire zod"
+                    class="copy-btn font-mono text-[11px] text-zinc-500 hover:text-white"
+                  >
+                    copy
+                  </button>
+                </div>
+
+                <pre
+                  class="overflow-x-auto bg-[#080808] p-5 font-mono text-sm"
+                ><span class="text-zinc-400">$</span> npm install basewire zod</pre>
+              </div>
+            </div>
+
+            <!-- SERVER -->
+            <div class="grid gap-8 lg:grid-cols-[220px_1fr]">
+              <div>
+                <div class="font-mono text-xs text-zinc-600">02</div>
+
+                <h3 class="mt-2 font-medium">Start a server</h3>
+
+                <p class="mt-2 text-sm leading-6 text-zinc-500">One process handles connections and storage.</p>
+              </div>
+
+              <div class="border-border overflow-hidden rounded-lg border">
+                <div class="border-border flex items-center justify-between border-b px-4 py-2.5">
+                  <span class="font-mono text-[11px] text-zinc-600"> server.ts </span>
+
+                  <button
+                    data-copy='import { DatabaseServer } from "basewire";
+
+new DatabaseServer({
+  port: 8080,
+  auth: process.env.DB_AUTH,
+});'
+                    class="copy-btn font-mono text-[11px] text-zinc-500 hover:text-white"
+                  >
+                    copy
+                  </button>
+                </div>
+
+                <pre
+                  class="overflow-x-auto bg-[#080808] p-5 font-mono text-xs leading-6 sm:text-sm"
+                ><span class="code-muted">import</span> { <span class="code-type">DatabaseServer</span> } <span class="code-muted">from</span> <span class="code-string">"basewire"</span>;
+
+<span class="code-keyword">new</span> <span class="code-type">DatabaseServer</span>({
+  port: <span class="code-number">8080</span>,
+  auth: process.env.DB_AUTH,
+});</pre>
+              </div>
+            </div>
+
+            <!-- CLIENT -->
+            <div class="grid gap-8 lg:grid-cols-[220px_1fr]">
+              <div>
+                <div class="font-mono text-xs text-zinc-600">03</div>
+
+                <h3 class="mt-2 font-medium">Connect</h3>
+
+                <p class="mt-2 text-sm leading-6 text-zinc-500">Connect first, then create database handles.</p>
+              </div>
+
+              <div class="border-border overflow-hidden rounded-lg border">
+                <div class="border-border flex items-center justify-between border-b px-4 py-2.5">
+                  <span class="font-mono text-[11px] text-zinc-600"> app.ts </span>
+
+                  <button
+                    data-copy='import { DatabaseClient } from "basewire";
+
+const client = new DatabaseClient({
+  url: "localhost",
+  port: 8080,
+  auth: process.env.DB_AUTH,
+});
+
+await client.connect();
+
+const users = client.createDatabase("users");
+
+await users.set("u_1", {
+  name: "Ada",
+  role: "admin",
+});
+
+const ada = await users.get("u_1");'
+                    class="copy-btn font-mono text-[11px] text-zinc-500 hover:text-white"
+                  >
+                    copy
+                  </button>
+                </div>
+
+                <pre
+                  class="overflow-x-auto bg-[#080808] p-5 font-mono text-xs leading-6 sm:text-sm"
+                ><span class="code-muted">import</span> { <span class="code-type">DatabaseClient</span> } <span class="code-muted">from</span> <span class="code-string">"basewire"</span>;
+
+<span class="code-keyword">const</span> client = <span class="code-keyword">new</span> <span class="code-type">DatabaseClient</span>({
+  url: <span class="code-string">"localhost"</span>,
+  port: <span class="code-number">8080</span>,
+  auth: process.env.DB_AUTH,
+});
+
+<span class="code-keyword">await</span> client.connect();
+
+<span class="code-keyword">const</span> users = client.createDatabase(
+  <span class="code-string">"users"</span>
+);
+
+<span class="code-keyword">await</span> users.set(<span class="code-string">"u_1"</span>, {
+  name: <span class="code-string">"Ada"</span>,
+  role: <span class="code-string">"admin"</span>,
+});
+
+<span class="code-keyword">const</span> ada =
+  <span class="code-keyword">await</span> users.get(<span class="code-string">"u_1"</span>);</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- VALIDATION -->
+      <!-- ========================================================= -->
+
+      <section id="validation" class="border-border border-b">
+        <div class="mx-auto max-w-6xl px-4 py-24 sm:px-6">
+          <div class="grid items-center gap-14 lg:grid-cols-2">
+            <div>
+              <div class="font-mono text-xs tracking-widest text-zinc-600 uppercase">Runtime safety</div>
+
+              <h2 class="mt-4 text-3xl font-semibold tracking-tight">Give your database a shape.</h2>
+
+              <p class="mt-5 max-w-lg text-sm leading-7 text-zinc-500">
+                Pass a Zod schema when creating a database and basewire uses it to validate writes at runtime while
+                TypeScript infers the corresponding value type.
+              </p>
+
+              <div class="mt-8 space-y-3">
+                <div class="flex gap-3 text-sm text-zinc-400">
+                  <span class="mt-2 h-1 w-1 shrink-0 rounded-full bg-zinc-500"></span>
+                  <span> No schema? No runtime validation. </span>
+                </div>
+
+                <div class="flex gap-3 text-sm text-zinc-400">
+                  <span class="mt-2 h-1 w-1 shrink-0 rounded-full bg-zinc-500"></span>
+                  <span> Schema provided? Values are checked before transport. </span>
+                </div>
+
+                <div class="flex gap-3 text-sm text-zinc-400">
+                  <span class="mt-2 h-1 w-1 shrink-0 rounded-full bg-zinc-500"></span>
+                  <span> Each database path can have its own schema. </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="border-border overflow-hidden rounded-lg border">
+              <div class="border-border flex items-center justify-between border-b px-4 py-2.5">
+                <span class="font-mono text-[11px] text-zinc-600"> users.ts </span>
+
+                <button
+                  data-copy='import { z } from "zod";
+
+const User = z.object({
+  name: z.string(),
+  role: z.enum(["admin", "member"]),
+});
+
+const users = client.createDatabase("users", User);
+
+await users.set("u_1", {
+  name: "Ada",
+  role: "admin",
+});'
+                  class="copy-btn font-mono text-[11px] text-zinc-500 hover:text-white"
+                >
+                  copy
+                </button>
+              </div>
+
+              <pre
+                class="overflow-x-auto bg-[#080808] p-5 font-mono text-xs leading-6 sm:text-sm"
+              ><span class="code-muted">import</span> { z } <span class="code-muted">from</span> <span class="code-string">"zod"</span>;
+
+<span class="code-keyword">const</span> User = z.object({
+  name: z.string(),
+  role: z.enum([
+    <span class="code-string">"admin"</span>,
+    <span class="code-string">"member"</span>
+  ]),
+});
+
+<span class="code-keyword">const</span> users =
+  client.createDatabase(
+    <span class="code-string">"users"</span>,
+    User
+  );
+
+<span class="code-comment">// validated before transport</span>
+<span class="code-keyword">await</span> users.set(<span class="code-string">"u_1"</span>, {
+  name: <span class="code-string">"Ada"</span>,
+  role: <span class="code-string">"admin"</span>,
+});</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- API -->
+      <!-- ========================================================= -->
+
+      <section id="reference">
+        <div class="mx-auto max-w-6xl px-4 py-24 sm:px-6">
+          <div class="mb-12">
+            <div class="font-mono text-xs tracking-widest text-zinc-600 uppercase">Reference</div>
+
+            <h2 class="mt-4 text-3xl font-semibold tracking-tight">API reference</h2>
+
+            <p class="mt-3 max-w-xl text-sm leading-6 text-zinc-500">
+              Everything you need to work with clients, databases, servers, and validation.
+            </p>
+          </div>
+
+          <div class="grid gap-10 lg:grid-cols-[190px_1fr]">
+            <!-- SIDEBAR -->
+            <aside>
+              <div class="border-border sticky top-24 overflow-hidden rounded-lg border">
+                <button
+                  data-tab="client"
+                  data-active="true"
+                  class="tab border-border relative block w-full border-b px-4 py-3 text-left font-mono text-xs text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-white"
+                >
+                  DatabaseClient
+                </button>
+
+                <button
+                  data-tab="database"
+                  data-active="false"
+                  class="tab border-border relative block w-full border-b px-4 py-3 text-left font-mono text-xs text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-white"
+                >
+                  Database&lt;T&gt;
+                </button>
+
+                <button
+                  data-tab="server"
+                  data-active="false"
+                  class="tab border-border relative block w-full border-b px-4 py-3 text-left font-mono text-xs text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-white"
+                >
+                  DatabaseServer
+                </button>
+
+                <button
+                  data-tab="types"
+                  data-active="false"
+                  class="tab relative block w-full px-4 py-3 text-left font-mono text-xs text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-white"
+                >
+                  Types
+                </button>
+              </div>
+            </aside>
+
+            <!-- PANELS -->
+            <div>
+              <!-- CLIENT -->
+              <div id="panel-client" class="api-panel space-y-10">
+                <div>
+                  <h3 class="text-xl font-medium">DatabaseClient</h3>
+
+                  <p class="mt-3 text-sm leading-6 text-zinc-500">
+                    Represents the WebSocket connection to a basewire server.
+                  </p>
+                </div>
+
+                <div>
+                  <div class="border-border rounded-lg border bg-[#080808] p-4 font-mono text-xs text-zinc-300">
+                    new DatabaseClient(options)
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="mb-4 text-sm font-medium">Constructor</h4>
+
+                  <div class="border-border overflow-hidden rounded-lg border">
+                    <table class="w-full text-left text-sm">
+                      <thead class="border-border border-b bg-zinc-950 font-mono text-xs text-zinc-600">
+                        <tr>
+                          <th class="px-4 py-3 font-normal">Property</th>
+                          <th class="px-4 py-3 font-normal">Type</th>
+                          <th class="px-4 py-3 font-normal">Description</th>
+                        </tr>
+                      </thead>
+
+                      <tbody class="divide-border divide-y">
+                        <tr>
+                          <td class="px-4 py-3 font-mono text-xs text-zinc-300">url</td>
+                          <td class="px-4 py-3 font-mono text-xs text-zinc-500">string</td>
+                          <td class="px-4 py-3 text-xs text-zinc-500">Server hostname or URL.</td>
+                        </tr>
+
+                        <tr>
+                          <td class="px-4 py-3 font-mono text-xs text-zinc-300">port</td>
+                          <td class="px-4 py-3 font-mono text-xs text-zinc-500">number</td>
+                          <td class="px-4 py-3 text-xs text-zinc-500">Server port.</td>
+                        </tr>
+
+                        <tr>
+                          <td class="px-4 py-3 font-mono text-xs text-zinc-300">auth</td>
+                          <td class="px-4 py-3 font-mono text-xs text-zinc-500">string</td>
+                          <td class="px-4 py-3 text-xs text-zinc-500">Authentication token.</td>
+                        </tr>
+
+                        <tr>
+                          <td class="px-4 py-3 font-mono text-xs text-zinc-300">secure</td>
+                          <td class="px-4 py-3 font-mono text-xs text-zinc-500">boolean?</td>
+                          <td class="px-4 py-3 text-xs text-zinc-500">Use secure WebSocket transport.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="mb-4 text-sm font-medium">Methods</h4>
+
+                  <div class="space-y-3">
+                    <div class="border-border rounded-lg border p-5">
+                      <code class="font-mono text-xs text-zinc-200"> connect(): Promise&lt;void&gt; </code>
+
+                      <p class="mt-3 text-sm leading-6 text-zinc-500">
+                        Opens the WebSocket connection and authenticates the client.
+                      </p>
+                    </div>
+
+                    <div class="border-border rounded-lg border p-5">
+                      <code class="font-mono text-xs text-zinc-200">
+                        createDatabase&lt;T&gt;(path): Database&lt;T&gt;
+                      </code>
+
+                      <p class="mt-3 text-sm leading-6 text-zinc-500">
+                        Returns a database handle for the specified path.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="mb-4 text-sm font-medium">Events</h4>
+
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div class="border-border rounded-lg border p-5">
+                      <code class="font-mono text-xs text-zinc-200"> "error" </code>
+
+                      <p class="mt-2 text-xs leading-5 text-zinc-500">Emitted when a socket or request fails.</p>
+                    </div>
+
+                    <div class="border-border rounded-lg border p-5">
+                      <code class="font-mono text-xs text-zinc-200"> "disconnected" </code>
+
+                      <p class="mt-2 text-xs leading-5 text-zinc-500">Emitted when the socket connection drops.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- DATABASE -->
+              <div id="panel-database" class="api-panel hidden space-y-8">
+                <div>
+                  <h3 class="text-xl font-medium">Database&lt;T&gt;</h3>
+
+                  <p class="mt-3 text-sm leading-6 text-zinc-500">A handle to a single database path.</p>
+                </div>
+
+                <div class="space-y-3">
+                  <div class="border-border rounded-lg border p-5">
+                    <code class="font-mono text-xs"> get(key): Promise&lt;T | null&gt; </code>
+
+                    <p class="mt-3 text-sm text-zinc-500">Returns the value or null when the key doesn't exist.</p>
+                  </div>
+
+                  <div class="border-border rounded-lg border p-5">
+                    <code class="font-mono text-xs"> set(key, value): Promise&lt;T&gt; </code>
+
+                    <p class="mt-3 text-sm text-zinc-500">Stores a value and returns the stored value.</p>
+                  </div>
+
+                  <div class="border-border rounded-lg border p-5">
+                    <code class="font-mono text-xs"> has(key): Promise&lt;boolean&gt; </code>
+
+                    <p class="mt-3 text-sm text-zinc-500">Checks whether a key exists.</p>
+                  </div>
+
+                  <div class="border-border rounded-lg border p-5">
+                    <code class="font-mono text-xs"> delete(key): Promise&lt;boolean&gt; </code>
+
+                    <p class="mt-3 text-sm text-zinc-500">Deletes a key and reports whether something was removed.</p>
+                  </div>
+
+                  <div class="border-border rounded-lg border p-5">
+                    <code class="font-mono text-xs"> all(): Promise&lt;{ [key: string]: T }&gt; </code>
+
+                    <p class="mt-3 text-sm text-zinc-500">Returns all key/value pairs.</p>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="mb-4 text-sm font-medium">Batch operations</h4>
+
+                  <div class="space-y-3">
+                    <div class="border-border rounded-lg border p-5">
+                      <code class="font-mono text-xs"> getMany(keys) </code>
+                    </div>
+
+                    <div class="border-border rounded-lg border p-5">
+                      <code class="font-mono text-xs"> setMany(data) </code>
+                    </div>
+
+                    <div class="border-border rounded-lg border p-5">
+                      <code class="font-mono text-xs"> deleteMany(keys) </code>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="border-border overflow-hidden rounded-lg border">
+                  <div class="border-border border-b px-4 py-2.5 font-mono text-[11px] text-zinc-600">batching.ts</div>
+
+                  <pre
+                    class="overflow-x-auto bg-[#080808] p-5 font-mono text-xs leading-6"
+                  ><span class="code-keyword">await</span> users.setMany([
+  {
+    key: <span class="code-string">"u_2"</span>,
+    value: { name: <span class="code-string">"Grace"</span> }
+  },
+  {
+    key: <span class="code-string">"u_3"</span>,
+    value: { name: <span class="code-string">"Alan"</span> }
+  }
+]);
+
+<span class="code-keyword">const</span> values =
+  <span class="code-keyword">await</span> users.getMany([
+    <span class="code-string">"u_1"</span>,
+    <span class="code-string">"u_2"</span>
+  ]);</pre>
+                </div>
+              </div>
+
+              <!-- SERVER -->
+              <div id="panel-server" class="api-panel hidden space-y-8">
+                <div>
+                  <h3 class="text-xl font-medium">DatabaseServer</h3>
+
+                  <p class="mt-3 text-sm leading-6 text-zinc-500">
+                    The process responsible for storage and WebSocket connections.
+                  </p>
+                </div>
+
+                <div class="border-border rounded-lg border bg-[#080808] p-4 font-mono text-xs text-zinc-300">
+                  new DatabaseServer(options)
+                </div>
+
+                <div class="border-border overflow-hidden rounded-lg border">
+                  <table class="w-full text-left text-sm">
+                    <thead class="border-border border-b bg-zinc-950 font-mono text-xs text-zinc-600">
+                      <tr>
+                        <th class="px-4 py-3 font-normal">Option</th>
+                        <th class="px-4 py-3 font-normal">Type</th>
+                        <th class="px-4 py-3 font-normal">Description</th>
+                      </tr>
+                    </thead>
+
+                    <tbody class="divide-border divide-y">
+                      <tr>
+                        <td class="px-4 py-3 font-mono text-xs">port</td>
+                        <td class="px-4 py-3 font-mono text-xs text-zinc-500">number</td>
+                        <td class="px-4 py-3 text-xs text-zinc-500">Port to listen on.</td>
+                      </tr>
+
+                      <tr>
+                        <td class="px-4 py-3 font-mono text-xs">auth</td>
+                        <td class="px-4 py-3 font-mono text-xs text-zinc-500">string</td>
+                        <td class="px-4 py-3 text-xs text-zinc-500">Authentication token.</td>
+                      </tr>
+
+                      <tr>
+                        <td class="px-4 py-3 font-mono text-xs">ssl</td>
+                        <td class="px-4 py-3 font-mono text-xs text-zinc-500">SSLOptions?</td>
+                        <td class="px-4 py-3 text-xs text-zinc-500">Enables secure WebSocket transport.</td>
+                      </tr>
+
+                      <tr>
+                        <td class="px-4 py-3 font-mono text-xs">onStdout</td>
+                        <td class="px-4 py-3 font-mono text-xs text-zinc-500">function?</td>
+                        <td class="px-4 py-3 text-xs text-zinc-500">Receives server log lines.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="border-border overflow-hidden rounded-lg border">
+                  <div class="border-border border-b px-4 py-2.5 font-mono text-[11px] text-zinc-600">server.ts</div>
+
+                  <pre
+                    class="overflow-x-auto bg-[#080808] p-5 font-mono text-xs leading-6"
+                  ><span class="code-muted">import</span> { <span class="code-type">DatabaseServer</span> }
+  <span class="code-muted">from</span> <span class="code-string">"basewire"</span>;
+
+<span class="code-keyword">new</span> <span class="code-type">DatabaseServer</span>({
+  port: <span class="code-number">443</span>,
+  auth: process.env.DB_AUTH,
+
+  ssl: {
+    key: readFileSync(<span class="code-string">"key.pem"</span>),
+    cert: readFileSync(<span class="code-string">"cert.pem"</span>)
+  }
+});</pre>
+                </div>
+              </div>
+
+              <!-- TYPES -->
+              <div id="panel-types" class="api-panel hidden space-y-8">
+                <div>
+                  <h3 class="text-xl font-medium">Types</h3>
+
+                  <p class="mt-3 text-sm leading-6 text-zinc-500">Supporting types exported by basewire.</p>
+                </div>
+
+                <div class="border-border rounded-lg border p-6">
+                  <code class="font-mono text-sm"> SSLOptions </code>
+
+                  <p class="mt-3 text-sm text-zinc-500">TLS configuration passed to DatabaseServer.</p>
+
+                  <div class="border-border mt-6 overflow-hidden rounded-md border">
+                    <table class="w-full text-left text-sm">
+                      <tbody class="divide-border divide-y">
+                        <tr>
+                          <td class="px-4 py-3 font-mono text-xs">key</td>
+                          <td class="px-4 py-3 text-xs text-zinc-500">string</td>
+                        </tr>
+
+                        <tr>
+                          <td class="px-4 py-3 font-mono text-xs">cert</td>
+                          <td class="px-4 py-3 text-xs text-zinc-500">string</td>
+                        </tr>
+
+                        <tr>
+                          <td class="px-4 py-3 font-mono text-xs">rejectUnauthorized</td>
+                          <td class="px-4 py-3 text-xs text-zinc-500">boolean?</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ========================================================= -->
+    <!-- FOOTER -->
+    <!-- ========================================================= -->
+
+    <footer class="border-border border-t">
+      <div
+        class="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-12 sm:px-6 md:flex-row md:items-center md:justify-between"
+      >
+        <div>
+          <div class="flex items-center gap-2 font-mono text-sm">
+            <span class="border-border flex h-6 w-6 items-center justify-center rounded-md border">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M12 2.5 4.5 6.7v10.6l7.5 4.2 7.5-4.2V6.7L12 2.5Z" />
+              </svg>
+            </span>
+
+            basewire
+          </div>
+
+          <p class="mt-3 text-xs text-zinc-600">Lightweight key-value storage over WebSocket.</p>
+        </div>
+
+        <div class="flex items-center gap-5 font-mono text-xs text-zinc-600">
+          <a href="https://github.com" class="transition-colors hover:text-white"> GitHub </a>
+
+          <a href="https://www.npmjs.com" class="transition-colors hover:text-white"> npm </a>
+
+          <span>MIT</span>
+        </div>
+      </div>
+    </footer>
+
+    <!-- ========================================================= -->
+    <!-- JS -->
+    <!-- ========================================================= -->
+
+    <script>
+      // -----------------------------------------------------------
+      // API TABS
+      // -----------------------------------------------------------
+
+      const tabs = document.querySelectorAll(".tab");
+      const panels = document.querySelectorAll(".api-panel");
+
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          const target = tab.dataset.tab;
+
+          tabs.forEach((item) => {
+            item.dataset.active = "false";
+          });
+
+          panels.forEach((panel) => {
+            panel.classList.add("hidden");
+          });
+
+          tab.dataset.active = "true";
+
+          document.getElementById(`panel-${target}`).classList.remove("hidden");
+        });
+      });
+
+      // -----------------------------------------------------------
+      // COPY BUTTONS
+      // -----------------------------------------------------------
+
+      document.querySelectorAll(".copy-btn").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const value = button.dataset.copy;
+
+          if (!value) return;
+
+          try {
+            await navigator.clipboard.writeText(value);
+
+            const original = button.textContent;
+
+            button.textContent = "copied";
+
+            setTimeout(() => {
+              button.textContent = original;
+            }, 1200);
+          } catch {
+            button.textContent = "failed";
+
+            setTimeout(() => {
+              button.textContent = "copy";
+            }, 1200);
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
