@@ -1,7 +1,6 @@
 /** @format */
 
-import z from "zod";
-import { KeyValueStore, DatabaseClient, DatabaseServer } from "../index.js";
+import { DatabaseClient, DatabaseServer } from "../index.js";
 
 new DatabaseServer({ port: 5000, auth: "secret" });
 
@@ -9,15 +8,18 @@ const client = new DatabaseClient({ url: "localhost", port: 5000, auth: "secret"
 
 await client.connect();
 
-const db = client.createDatabase("test", z.number());
+const db = await client.createDatabase<string>("test", { keysPerFile: 1000 });
 
 console.log(await db.all());
 
-const DB = new KeyValueStore<string>({ path: "./storage/test2" });
+console.time("set");
+for (let i = 0; i < 100000; i++) await db.set(`key${i}`, `value${i}`);
+console.timeEnd("set");
 
-console.log(await DB.all());
+console.time("get");
+for (let i = 0; i < 100000; i++) await db.get(`key${i}`);
+console.timeEnd("get");
 
-for (let i = 0; i < 100000; i++) {
-  await DB.set(`key${i}`, `value${i}`);
-  console.log(i);
-}
+console.time("delete");
+for (let i = 0; i < 100000; i++) await db.delete(`key${i}`);
+console.timeEnd("delete");
