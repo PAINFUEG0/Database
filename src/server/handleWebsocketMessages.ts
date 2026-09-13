@@ -11,9 +11,7 @@ export async function handleIncomingWebsocketMessages(this: WebSocket, data: Raw
   const PL: Payload = JSON.parse(data.toString());
 
   let { path, requestId } = PL;
-  path = resolve("./", "storage", path);
-
-  const db = databases.get(path) || databases.set(path, new KeyValueStore(path)).get(path)!;
+  const db = databases.get(path)!;
 
   try {
     //@ts-expect-error loose typings
@@ -26,6 +24,9 @@ export async function handleIncomingWebsocketMessages(this: WebSocket, data: Raw
 }
 
 const handlers = {
+  INIT: (_: any, pl: Payload & { method: "INIT" }) =>
+    databases.set(pl.path, new KeyValueStore({ path: resolve("./", "storage", pl.path), ...pl.options })),
+
   ALL: (db: KeyValueStore<any>) => db.all(),
   HAS: (db: KeyValueStore<any>, PL: Payload & { method: "HAS" }) => db.has(PL.key),
   GET: (db: KeyValueStore<any>, PL: Payload & { method: "GET" }) => db.get(PL.key),
