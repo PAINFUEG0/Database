@@ -55,6 +55,11 @@ export class Database<T> {
     }
   }
 
+  async init(options: { debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number } = {}) {
+    await this.#makeReq<void>({ method: "INIT", options });
+    return this;
+  }
+
   async all() {
     return this.#makeReq<{ [key: string]: T }>({ method: "ALL" });
   }
