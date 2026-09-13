@@ -50,10 +50,20 @@ export class DatabaseClient extends EventEmitter<{ error: [err: Error]; disconne
    * @requires {@linkcode DatabaseClient#connect} to be called and awaited
    * @throws if webSocket connection is not open i.e is closed or connecting or closing
    */
-  createDatabase<T = unknown>(path: string): Database<T>;
-  createDatabase<T extends z.ZodType>(path: string, schema: T): Database<z.infer<T>>;
+  createDatabase<T = unknown>(path: string): Promise<Database<T>>;
+  createDatabase<T = unknown>(
+    path: string,
+    op: { debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }
+  ): Promise<Database<T>>;
+  createDatabase<T extends z.ZodType>(
+    path: string,
+    op: { schema: T; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }
+  ): Promise<Database<z.infer<T>>>;
 
-  createDatabase(path: string, schema?: z.ZodType) {
+  async createDatabase(
+    path: string,
+    op?: { schema?: z.ZodType; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }
+  ) {
     if (this.webSocket?.readyState !== WebSocket.OPEN)
       throw new Error(`Please do "await <DatabaseClient>.connect()" before trying to create a database !`);
 
@@ -62,6 +72,7 @@ export class DatabaseClient extends EventEmitter<{ error: [err: Error]; disconne
     if (path.length > 1000) throw new Error("Path too long max 1000 characters");
     if (path.includes("..")) throw new Error("Invalid path !! Path cannot contain '..'");
 
-    return new Database(this, path, schema);
+    const db = new Database(this, path, op?.schema);
+    return await db.init(op);
   }
 }
