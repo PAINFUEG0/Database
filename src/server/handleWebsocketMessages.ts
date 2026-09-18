@@ -14,7 +14,7 @@ export async function handleIncomingWebsocketMessages(this: WebSocket, raw: RawD
   const db = databases.get(path)!;
 
   try {
-    //@ts-expect-error loose typings
+    // @ts-expect-error loose typings
     const data = await handlers[PL.method](db, PL);
     this.send(JSON.stringify({ requestId, data }));
   } catch (error) {
@@ -24,15 +24,15 @@ export async function handleIncomingWebsocketMessages(this: WebSocket, raw: RawD
 }
 
 const handlers = {
-  INIT: (_: any, pl: Payload & { method: "INIT" }) =>
-    databases.set(pl.path, new KeyValueStore({ path: resolve("./", "storage", pl.path), ...pl.options })),
+  INIT: async (_: any, pl: Payload & { method: "INIT" }) =>
+    databases.set(pl.path, await new KeyValueStore({ path: resolve("./", "storage", pl.path), ...pl.options }).init()),
 
-  ALL: (db: KeyValueStore<any>) => db.all(),
-  HAS: (db: KeyValueStore<any>, PL: Payload & { method: "HAS" }) => db.has(PL.key),
-  GET: (db: KeyValueStore<any>, PL: Payload & { method: "GET" }) => db.get(PL.key),
-  DELETE: (db: KeyValueStore<any>, PL: Payload & { method: "DELETE" }) => db.delete(PL.key),
-  SET: (db: KeyValueStore<any>, PL: Payload & { method: "SET" }) => db.set(PL.key, PL.value),
-  GET_MANY: (db: KeyValueStore<any>, PL: Payload & { method: "GET_MANY" }) => db.getMany(PL.keys),
-  SET_MANY: (db: KeyValueStore<any>, PL: Payload & { method: "SET_MANY" }) => db.setMany(PL.data),
-  DELETE_MANY: (db: KeyValueStore<any>, PL: Payload & { method: "DELETE_MANY" }) => db.deleteMany(PL.keys)
+  ALL: async (db: KeyValueStore<any>) => await db.all(),
+  HAS: async (db: KeyValueStore<any>, PL: Payload & { method: "HAS" }) => await db.has(PL.key),
+  GET: async (db: KeyValueStore<any>, PL: Payload & { method: "GET" }) => await db.get(PL.key),
+  DELETE: async (db: KeyValueStore<any>, PL: Payload & { method: "DELETE" }) => await db.delete(PL.key),
+  SET: async (db: KeyValueStore<any>, PL: Payload & { method: "SET" }) => await db.set(PL.key, PL.value),
+  GET_MANY: async (db: KeyValueStore<any>, PL: Payload & { method: "GET_MANY" }) => await db.getMany(PL.keys),
+  SET_MANY: async (db: KeyValueStore<any>, PL: Payload & { method: "SET_MANY" }) => await db.setMany(PL.data),
+  DELETE_MANY: async (db: KeyValueStore<any>, PL: Payload & { method: "DELETE_MANY" }) => await db.deleteMany(PL.keys)
 };
