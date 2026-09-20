@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import { WebSocketServer } from "ws";
 import { handleRestRequests } from "./handleRestRequests.js";
-import { createServer as createHttpServer } from "node:http";
+import { createServer as createHttpServer, IncomingMessage, ServerResponse } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import { handleIncomingWebsocketMessages } from "./handleWebsocketMessages.js";
 
@@ -29,7 +29,16 @@ export class DatabaseServer {
 
     const ssl = key && cert;
 
-    const server = ssl ? createHttpsServer({ key, cert }, handleRestRequests) : createHttpServer(handleRestRequests);
+    const handler = (req: IncomingMessage, res: ServerResponse) => {
+      if (req.headers["authorization"] !== options.auth)
+        return res
+          .writeHead(401, { "Content-Type": "application/json" })
+          .end(JSON.stringify({ error: "Unauthorized" }));
+
+      ssl ? handleRestRequests.call(server, req, res) : handleRestRequests.call(server, req, res);
+    };
+
+    const server = ssl ? createHttpsServer({ key, cert }, handler) : createHttpServer(handler);
 
     const wss = new WebSocketServer({
       server,
