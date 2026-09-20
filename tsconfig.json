@@ -20,5 +20,5 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "exclude": ["node_modules", "dist", "lib", "./tsup.config.ts", "./test.mts"]
+  "exclude": ["node_modules", "dist", "lib", "./tsup.config.ts"]
 }
