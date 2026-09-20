@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import type { z } from "zod";
 import type { DatabaseClient } from "./databaseClient.js";
-import type { DatabaseClientRequest, PayloadOverloads } from "../types.js";
+import type { DatabaseClientRequest, DatabaseServerResponse, PayloadOverloads } from "../types.js";
 
 export class Database<T> {
   path: string;
@@ -25,21 +25,24 @@ export class Database<T> {
   }
 
   async #makeReq<D>(PL: PayloadOverloads) {
-    if (this.mode === "rest")
-      return fetch(this.#manager.address, {
-        method: "POST",
-        body: JSON.stringify({ ...PL, path: this.path }),
-        headers: { "Content-Type": "application/json", Authorization: this.#manager.auth }
-      }).then(async (res) => ((await res.json()) as any).data);
-
-    if (this.#manager.webSocket?.readyState !== WebSocket.OPEN)
+    if (this.#manager.webSocket?.readyState !== WebSocket.OPEN && this.mode === "ws")
       throw new Error(`Connection to database server is not open yet / closing / closed !`);
 
     const requestId = randomUUID();
     const request = <DatabaseClientRequest<D>>{ ...Promise.withResolvers<D>() };
 
-    this.#manager.requests.set(requestId, request);
-    this.#manager.webSocket!.send(JSON.stringify({ ...PL, requestId, path: this.path }));
+    if (this.mode === "rest") {
+      await fetch(this.#manager.address, {
+        method: "POST",
+        body: JSON.stringify({ ...PL, path: this.path }),
+        headers: { "Content-Type": "application/json", Authorization: this.#manager.auth }
+      })
+        .then((res) => res.json() as Promise<DatabaseServerResponse<D>>)
+        .then((res) => ("error" in res ? request.reject(new Error(res.error)) : request.resolve(res.data)));
+    } else {
+      this.#manager.requests.set(requestId, request);
+      this.#manager.webSocket!.send(JSON.stringify({ ...PL, requestId, path: this.path }));
+    }
 
     request.timeout = setTimeout(() => {
       this.#manager.requests.delete(requestId);
