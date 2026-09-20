@@ -10,7 +10,7 @@ import type { WebSocket, RawData } from "ws";
 export async function handleIncomingWebsocketMessages(this: WebSocket, raw: RawData) {
   const PL: Payload = JSON.parse(raw.toString());
 
-  let { path, requestId } = PL;
+  const { path, requestId } = PL;
   const db = databases.get(path)!;
 
   try {
