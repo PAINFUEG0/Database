@@ -1,11 +1,16 @@
 /** @format */
 
-import { DatabaseClient, DatabaseServer } from "../index.js";
+import { DatabaseClient, DatabaseServer } from "./lib/index.mjs";
 
 console.log(`Starting DatabaseServer on port 5000`);
 new DatabaseServer({ port: 5000, auth: "secret" });
 
-const client = new DatabaseClient({ url: "localhost", port: 5000, auth: "secret" });
+const client = new DatabaseClient({
+  url: "performance.heavencloud.online",
+  port: 4085,
+  auth: "d2cba490cc0922701e973f91e05956e42bfc6350",
+  mode: "rest"
+});
 
 console.log(`Connecting to DatabaseServer`);
 await client.connect();
