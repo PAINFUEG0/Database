@@ -1,30 +1,33 @@
 /** @format */
 
+import { actions } from "./actions.js";
+import { databases } from "./databaseServer.js";
+
 import type { Server, IncomingMessage, ServerResponse } from "node:http";
 
-export function handleRestRequests(this: Server, req: IncomingMessage, res: ServerResponse) {
+export async function handleRestRequests(this: Server, req: IncomingMessage, res: ServerResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
 
-  switch (req.method) {
-    case "GET":
-      switch (req.url) {
-        case "/":
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify("Process uptime is: " + process.uptime()));
-          break;
+  try {
+    const PL = JSON.parse((await getBody(req)) || "{}");
+    const db = databases.get(PL.path)!;
 
-        default:
-          res.writeHead(404, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Not Found" }));
-          break;
-      }
-      break;
-
-    default:
-      res.writeHead(405, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Method Not Allowed" }));
-      break;
+    // @ts-expect-error loose typings
+    const data = await actions[PL.method](db, PL);
+    res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ data }));
+  } catch (error) {
+    error = error instanceof Error ? error.message : error;
+    res.writeHead(500, { "Content-Type": "application/json" }).end(JSON.stringify({ error }));
   }
+}
+
+function getBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => resolve(body));
+    req.on("error", reject);
+  });
 }

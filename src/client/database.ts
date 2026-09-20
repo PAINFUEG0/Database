@@ -9,6 +9,7 @@ import type { DatabaseClientRequest, PayloadOverloads } from "../types.js";
 export class Database<T> {
   path: string;
   #schema?: z.ZodType;
+  mode: "ws" | "rest";
   #reservedWords = ["__proto__", "prototype", "constructor"];
 
   #manager: DatabaseClient;
@@ -16,14 +17,21 @@ export class Database<T> {
   get manager() {
     return this.#manager;
   }
-
-  constructor(manager: DatabaseClient, path: string, schema?: z.ZodType) {
+  constructor(manager: DatabaseClient, path: string, mode: "ws" | "rest", schema?: z.ZodType) {
+    this.mode = mode;
     this.path = path;
     this.#schema = schema;
     this.#manager = manager;
   }
 
   async #makeReq<D>(PL: PayloadOverloads) {
+    if (this.mode === "rest")
+      return fetch(this.#manager.address, {
+        method: "POST",
+        body: JSON.stringify({ ...PL, path: this.path }),
+        headers: { "Content-Type": "application/json", Authorization: this.#manager.auth }
+      }).then(async (res) => ((await res.json()) as any).data);
+
     if (this.#manager.webSocket?.readyState !== WebSocket.OPEN)
       throw new Error(`Connection to database server is not open yet / closing / closed !`);
 

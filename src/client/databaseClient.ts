@@ -7,22 +7,27 @@ import { EventEmitter, once } from "node:events";
 import type { z } from "zod";
 import type { DatabaseClientRequest, DatabaseServerResponse } from "../types.js";
 
-type ConstructOptions = { url: string; auth: string } | { url: string; port: number; auth: string; secure?: boolean };
+type RequestMode = "ws" | "rest";
+
+type ConstructOptions = { url: string; port: number; auth: string; secure?: boolean; mode?: RequestMode };
 
 export class DatabaseClient extends EventEmitter<{ error: [err: Error]; disconnected: [address: string] }> {
   auth: string;
+  address: string;
+  mode: RequestMode;
   webSocket?: WebSocket;
-  socketAddress: string;
   requests = new Map<string, DatabaseClientRequest<any>>();
 
   constructor(op: ConstructOptions) {
     super();
     this.auth = op.auth;
-    this.socketAddress = "port" in op ? `ws${op.secure ? "s" : ""}://${op.url}:${op.port}` : op.url;
+    this.mode = op.mode ?? "ws";
+    this.address = `${this.mode === "ws" ? "ws" : "http"}${op.secure ? "s" : ""}://${op.url}:${op.port}`;
   }
 
   async connect() {
-    this.webSocket = new WebSocket(this.socketAddress, { headers: { Authorization: this.auth } });
+    if (this.mode !== "ws") return;
+    this.webSocket = new WebSocket(this.address, { headers: { Authorization: this.auth } });
 
     await once(this.webSocket, "open");
 
@@ -40,7 +45,7 @@ export class DatabaseClient extends EventEmitter<{ error: [err: Error]; disconne
     this.webSocket.on("error", (err) => this.emit("error", err));
 
     this.webSocket.once("close", () => {
-      this.emit("disconnected", this.socketAddress);
+      this.emit("disconnected", this.address);
       this.requests.forEach((request) => request.reject(new Error("Database server disconnected !")));
     });
   }
@@ -64,7 +69,7 @@ export class DatabaseClient extends EventEmitter<{ error: [err: Error]; disconne
     path: string,
     op?: { schema?: z.ZodType; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }
   ) {
-    if (this.webSocket?.readyState !== WebSocket.OPEN)
+    if (this.mode == "ws" && this.webSocket?.readyState !== WebSocket.OPEN)
       throw new Error(`Please do "await <DatabaseClient>.connect()" before trying to create a database !`);
 
     if (path.length === 0) throw new Error("Path cannot be empty");
@@ -72,7 +77,7 @@ export class DatabaseClient extends EventEmitter<{ error: [err: Error]; disconne
     if (path.length > 1000) throw new Error("Path too long max 1000 characters");
     if (path.includes("..")) throw new Error("Invalid path !! Path cannot contain '..'");
 
-    const db = new Database(this, path, op?.schema);
+    const db = new Database(this, path, this.mode, op?.schema);
     return await db.init(op);
   }
 }
