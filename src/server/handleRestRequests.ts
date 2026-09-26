@@ -18,6 +18,7 @@ export async function handleRestRequests(this: Server, req: IncomingMessage, res
     const data = await actions[PL.method](db, PL);
     res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ data }));
   } catch (error) {
+    console.error(error);
     error = error instanceof Error ? error.message : error;
     res.writeHead(500, { "Content-Type": "application/json" }).end(JSON.stringify({ error }));
   }

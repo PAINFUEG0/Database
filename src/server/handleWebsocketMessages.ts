@@ -17,6 +17,7 @@ export async function handleIncomingWebsocketMessages(this: WebSocket, raw: RawD
     const data = await actions[PL.method](db, PL);
     this.send(JSON.stringify({ requestId, data }));
   } catch (error) {
+    console.error(error);
     error = error instanceof Error ? error.message : error;
     this.send(JSON.stringify({ requestId, error }));
   }
