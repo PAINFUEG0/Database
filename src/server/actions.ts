@@ -7,8 +7,6 @@ import { KeyValueStore } from "./keyValueStore.js";
 import type { Payload } from "../types";
 
 export const actions = {
-  PATHS: () => databases.keys().toArray(),
-
   INIT: async (_: any, pl: Payload & { method: "INIT" }) =>
     databases.set(pl.path, await new KeyValueStore({ path: resolve("./", "storage", pl.path), ...pl.options }).init()),
 
