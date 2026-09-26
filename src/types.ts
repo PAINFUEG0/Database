@@ -8,6 +8,7 @@ export type BasePayload = { path: string; requestId: string };
 
 export type PayloadOverloads =
   | { method: "ALL" }
+  | { method: "PATHS" }
   | { method: "SET"; key: string; value: any }
   | { method: "GET" | "DELETE" | "HAS"; key: string }
   | { method: "GET_MANY" | "DELETE_MANY"; keys: string[] }
