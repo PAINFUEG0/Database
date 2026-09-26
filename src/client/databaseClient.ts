@@ -22,7 +22,7 @@ export class DatabaseClient extends EventEmitter<{ error: [err: Error]; disconne
     super();
     this.auth = op.auth;
     this.mode = op.mode ?? "ws";
-    this.address = `${this.mode === "ws" ? "ws" : "http"}${op.secure ? "s" : ""}://${op.url}:${op.port}`;
+    this.address = `${this.mode === "ws" ? "ws" : "http"}${op.secure ? "s" : ""}://${op.url}:${op.port}${this.mode === "ws" ? "/ws" : "/rest"}`;
   }
 
   async connect() {
