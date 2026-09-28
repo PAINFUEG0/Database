@@ -2,14 +2,24 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Test",
       "type": "shell",
-      "command": "npx tsup; node --experimental-strip-types --no-warnings ./src/test.mts",
-      "problemMatcher": [],
-      "group": {
-        "kind": "test",
-        "isDefault": true
-      }
+      "isBackground": true,
+      "label": "Build: Watch",
+      "command": "npx tsup --watch",
+      "presentation": { "group": "watch", "panel": "dedicated", "reveal": "always" }
+    },
+    {
+      "type": "shell",
+      "isBackground": true,
+      "label": "Test: Watch",
+      "command": "node --experimental-strip-types --watch ./src/test.mts",
+      "presentation": { "group": "watch", "panel": "dedicated", "reveal": "always" }
+    },
+    {
+      "label": "Test",
+      "dependsOrder": "parallel",
+      "dependsOn": ["Build: Watch", "Test: Watch"],
+      "group": { "kind": "test", "isDefault": true }
     }
   ]
 }
