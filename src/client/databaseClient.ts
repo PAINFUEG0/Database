@@ -50,11 +50,6 @@ export class DatabaseClient extends EventEmitter<{ error: [err: Error]; disconne
     });
   }
 
-  /**
-   * @description Creates a new database with the given path
-   * @requires {@linkcode DatabaseClient#connect} to be called and awaited
-   * @throws if webSocket connection is not open i.e is closed or connecting or closing
-   */
   createDatabase<T = unknown>(path: string): Promise<Database<T>>;
   createDatabase<T = unknown>(
     path: string,
