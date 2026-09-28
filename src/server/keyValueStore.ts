@@ -4,6 +4,8 @@ import * as fs from "node:fs";
 import { resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
+import type { KVstoreOptions } from "../types";
+
 export class KeyValueStore<T = unknown> {
   #isWriting = false;
   #debounceCount = 0;
@@ -25,8 +27,8 @@ export class KeyValueStore<T = unknown> {
   #reverseKeymap: { [K: string]: string } = {};
   #cache = new Map<string, { [K: string]: T }>();
 
-  constructor(op: string | { path: string; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }) {
-    this.#path = resolve(typeof op === "string" ? op : op.path);
+  constructor(op: KVstoreOptions) {
+    this.#path = resolve(op.path);
     this.#journalPath = resolve(this.#path, "write-ahead-log.jsonl");
     this.#tempJournalPath = resolve(this.#path, "_write-ahead-log.jsonl");
     this.#keysPerFile = typeof op !== "string" && !isNaN(op.keysPerFile!) ? op.keysPerFile! : 100;

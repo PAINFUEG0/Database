@@ -1,55 +1,79 @@
 /** @format */
 
-import { randomUUID } from "node:crypto";
-
 import type { z } from "zod";
-import type { DatabaseClient } from "./databaseClient.js";
-import type { DatabaseClientRequest, DatabaseServerResponse, PayloadOverloads } from "../types.js";
+import type { Protocols } from "../types";
 
 export class Database<T> {
-  path: string;
   #schema?: z.ZodType;
-  mode: "ws" | "rest";
   #reservedWords = ["__proto__", "prototype", "constructor"];
+  #makeRequest: <P extends Protocols<T>[keyof Protocols<T>]["req"]>(
+    PL: P
+  ) => Promise<Protocols<T>[keyof Protocols<T> & P["method"]]["res"]>;
 
-  #manager: DatabaseClient;
-
-  get manager() {
-    return this.#manager;
-  }
-  constructor(manager: DatabaseClient, path: string, mode: "ws" | "rest", schema?: z.ZodType) {
-    this.mode = mode;
-    this.path = path;
+  constructor(
+    payloadSenderFunction: <D>(PL: Protocols<D>[keyof Protocols<D>]["req"]) => Promise<D>,
+    schema?: z.ZodType
+  ) {
     this.#schema = schema;
-    this.#manager = manager;
+    this.#makeRequest = payloadSenderFunction;
   }
 
-  async #makeReq<D>(PL: PayloadOverloads) {
-    if (this.#manager.webSocket?.readyState !== WebSocket.OPEN && this.mode === "ws")
-      throw new Error(`Connection to database server is not open yet / closing / closed !`);
+  async init(options: Protocols<T>["INIT"]["req"]["options"] = {}) {
+    await this.#makeRequest({ method: "INIT", options });
+    return this;
+  }
 
-    const requestId = randomUUID();
-    const request = <DatabaseClientRequest<D>>{ ...Promise.withResolvers<D>() };
+  async all() {
+    return this.#makeRequest({ method: "ALL" });
+  }
 
-    if (this.mode === "rest") {
-      await fetch(this.#manager.address, {
-        method: "POST",
-        body: JSON.stringify({ ...PL, path: this.path }),
-        headers: { "Content-Type": "application/json", Authorization: this.#manager.auth }
-      })
-        .then((res) => res.json() as Promise<DatabaseServerResponse<D>>)
-        .then((res) => ("error" in res ? request.reject(new Error(res.error)) : request.resolve(res.data)));
-    } else {
-      this.#manager.requests.set(requestId, request);
-      this.#manager.webSocket!.send(JSON.stringify({ ...PL, requestId, path: this.path }));
-    }
+  async has(key: string) {
+    this.#validateKeys(key);
+    return this.#makeRequest({ method: "HAS", key });
+  }
 
-    request.timeout = setTimeout(() => {
-      this.#manager.requests.delete(requestId);
-      request.reject(new Error("Request timed out after 120 seconds."));
-    }, 120000);
+  async hasMany(keys: string[]) {
+    this.#validateKeys(keys);
+    return this.#makeRequest({ method: "HAS_MANY", keys });
+  }
 
-    return request.promise;
+  async get(key: string) {
+    this.#validateKeys(key);
+    return this.#makeRequest({ method: "GET", key });
+  }
+
+  async getMany(keys: string[]) {
+    this.#validateKeys(keys);
+    return this.#makeRequest({ method: "GET_MANY", keys });
+  }
+
+  async set(key: string, value: T) {
+    this.#validateKeys(key);
+    this.#schema && (await this.#schema.parseAsync(value));
+    return this.#makeRequest({ method: "SET", key, value });
+  }
+
+  async setMany(data: { key: string; value: T }[]) {
+    this.#validateKeys(data.map(({ key }) => key));
+    this.#schema &&
+      (await Promise.all(
+        data.map(({ key, value }, i) =>
+          this.#schema!.parseAsync(value).catch((err) => {
+            throw new Error(`Invalid value provided for key: ${key} @ index ${i}.\nError:\n${err.message}`);
+          })
+        )
+      ));
+    return this.#makeRequest({ method: "SET_MANY", data });
+  }
+
+  async delete(key: string) {
+    this.#validateKeys(key);
+    return this.#makeRequest({ method: "DELETE", key });
+  }
+
+  async deleteMany(keys: string[]) {
+    this.#validateKeys(keys);
+    return this.#makeRequest({ method: "DELETE_MANY", keys });
   }
 
   #validateKeys(key: unknown | unknown[]) {
@@ -64,63 +88,5 @@ export class Database<T> {
       if (!keys[i] || typeof keys[i] !== "string" || keys[i].length === 0 || keys[i].length > 255)
         throw new Error(`${_} Expexcted : string literal with length > 0 < 255\nGot : ${key}`);
     }
-  }
-
-  async init(options: { debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number } = {}) {
-    await this.#makeReq<void>({ method: "INIT", options });
-    return this;
-  }
-
-  async all() {
-    return this.#makeReq<{ [key: string]: T }>({ method: "ALL" });
-  }
-
-  async has(key: string) {
-    this.#validateKeys(key);
-    return this.#makeReq<boolean>({ method: "HAS", key });
-  }
-
-  async get(key: string) {
-    this.#validateKeys(key);
-    return this.#makeReq<T | null>({ method: "GET", key });
-  }
-
-  async delete(key: string) {
-    this.#validateKeys(key);
-    return this.#makeReq<boolean>({ method: "DELETE", key });
-  }
-
-  async set(key: string, value: T) {
-    this.#validateKeys(key);
-    this.#schema && (await this.#schema.parseAsync(value));
-    return this.#makeReq<T>({ method: "SET", key, value });
-  }
-
-  async deleteMany(keys: string[]) {
-    this.#validateKeys(keys);
-    return this.#makeReq<boolean[]>({ method: "DELETE_MANY", keys });
-  }
-
-  async hasMany(keys: string[]) {
-    this.#validateKeys(keys);
-    return this.#makeReq<boolean[]>({ method: "HAS_MANY", keys });
-  }
-
-  async getMany(keys: string[]) {
-    this.#validateKeys(keys);
-    return this.#makeReq<(T | null)[]>({ method: "GET_MANY", keys });
-  }
-
-  async setMany(data: { key: string; value: T }[]) {
-    this.#validateKeys(data.map(({ key }) => key));
-    this.#schema &&
-      (await Promise.all(
-        data.map(({ key, value }, i) =>
-          this.#schema!.parseAsync(value).catch((err) => {
-            throw new Error(`Invalid value provided for key: ${key} @ index ${i}.\nError:\n${err.message}`);
-          })
-        )
-      ));
-    return this.#makeReq<T[]>({ method: "SET_MANY", data });
   }
 }

@@ -1,70 +1,108 @@
 /** @format */
 
 import { WebSocket } from "ws";
+import { once } from "node:events";
 import { Database } from "./database.js";
-import { EventEmitter, once } from "node:events";
+import { requestFactory } from "./requestFactory.js";
 
 import type { z } from "zod";
-import type { DatabaseClientRequest, DatabaseServerResponse } from "../types.js";
+import type { RequestMode, DatabaseClientRequest, DatabaseClientOptions, DatabaseServerResponse } from "../types.js";
 
-type RequestMode = "ws" | "rest";
+export class DatabaseClient {
+  #auth: string;
+  #address: string;
+  #mode: RequestMode;
+  #webSocket?: WebSocket;
+  #requests = new Map<string, DatabaseClientRequest<any>>();
 
-type ConstructOptions = { url: string; port: number; auth: string; secure?: boolean; mode?: RequestMode };
+  #throwOnError = true;
+  #throwOnDisconnect = true;
 
-export class DatabaseClient extends EventEmitter<{ error: [err: Error]; disconnected: [address: string] }> {
-  auth: string;
-  address: string;
-  mode: RequestMode;
-  webSocket?: WebSocket;
-  requests = new Map<string, DatabaseClientRequest<any>>();
+  #onError: (err: Error) => void;
+  #onDisconnect: (address: string) => void;
 
-  constructor(op: ConstructOptions) {
-    super();
-    this.auth = op.auth;
-    this.mode = op.mode ?? "ws";
-    this.address = `${this.mode === "ws" ? "ws" : "http"}${op.secure ? "s" : ""}://${op.url}:${op.port}${this.mode === "ws" ? "/ws" : "/rest"}`;
+  #makeRequest = requestFactory.call(this);
+
+  get auth() {
+    return this.#auth;
+  }
+
+  get address() {
+    return this.#address;
+  }
+
+  get mode() {
+    return this.#mode;
+  }
+
+  get webSocket() {
+    return this.#webSocket;
+  }
+
+  get requests() {
+    return this.#requests;
+  }
+
+  constructor(op: DatabaseClientOptions) {
+    this.#auth = op.auth;
+    this.#mode = op.mode ?? "ws";
+
+    this.#onError = op.onError ?? console.error;
+    this.#throwOnError = op.throwOnError ?? !op.onError;
+    this.#throwOnDisconnect = op.throwOnDisconnect ?? !op.onDisconnect;
+    this.#onDisconnect = op.onDisconnect ?? console.error.bind(console, "Client disconnected ! Address : ");
+
+    this.#address = `${this.#mode === "ws" ? "ws" : "http"}${op.secure ? "s" : ""}://${op.url}:${op.port}${this.#mode === "ws" ? "/ws" : "/rest"}`;
   }
 
   async connect() {
-    if (this.mode !== "ws") return;
-    this.webSocket = new WebSocket(this.address, { headers: { Authorization: this.auth } });
+    if (this.#mode !== "ws") return;
 
-    await once(this.webSocket, "open");
+    this.#webSocket = new WebSocket(this.#address, { headers: { Authorization: this.#auth } });
 
-    this.webSocket.on("message", (data) => {
+    await once(this.#webSocket, "open");
+
+    this.#webSocket.on("message", (data) => {
       const response = <DatabaseServerResponse>JSON.parse(data.toString());
-      const request = this.requests.get(response.requestId);
+      const request = this.#requests.get(response.requestId);
 
       if (!request) return;
 
       clearTimeout(request.timeout);
-      this.requests.delete(response.requestId);
+      this.#requests.delete(response.requestId);
       "error" in response ? request.reject(new Error(JSON.stringify(response))) : request.resolve(response.data);
     });
 
-    this.webSocket.on("error", (err) => this.emit("error", err));
+    this.#webSocket.on("error", (err) => {
+      if (this.#throwOnError) throw err;
+      else this.#onError(err);
+    });
 
-    this.webSocket.once("close", () => {
-      this.emit("disconnected", this.address);
-      this.requests.forEach((request) => request.reject(new Error("Database server disconnected !")));
+    this.#webSocket.once("close", () => {
+      if (this.#throwOnDisconnect) throw new Error(`Database server disconnected ! Address : ${this.#address}`);
+      else this.#onDisconnect(this.#address);
+
+      this.#requests.forEach((request) => request.reject(new Error("Database server disconnected !")));
     });
   }
 
   createDatabase<T = unknown>(path: string): Promise<Database<T>>;
+
   createDatabase<T = unknown>(
     path: string,
     op: { debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }
   ): Promise<Database<T>>;
+
   createDatabase<T extends z.ZodType>(
     path: string,
     op: { schema: T; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }
   ): Promise<Database<z.infer<T>>>;
 
-  async createDatabase(
+  createDatabase(
     path: string,
     op?: { schema?: z.ZodType; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }
   ) {
-    if (this.mode == "ws" && this.webSocket?.readyState !== WebSocket.OPEN)
+    if (this.#mode == "ws" && this.#webSocket?.readyState !== WebSocket.OPEN)
       throw new Error(`Please do "await <DatabaseClient>.connect()" before trying to create a database !`);
 
     if (path.length === 0) throw new Error("Path cannot be empty");
@@ -72,7 +110,7 @@ export class DatabaseClient extends EventEmitter<{ error: [err: Error]; disconne
     if (path.length > 1000) throw new Error("Path too long max 1000 characters");
     if (path.includes("..")) throw new Error("Invalid path !! Path cannot contain '..'");
 
-    const db = new Database(this, path, this.mode, op?.schema);
-    return await db.init(op);
+    const db = new Database(this.#makeRequest.bind(this, path) as any, op?.schema);
+    return db.init(op);
   }
 }

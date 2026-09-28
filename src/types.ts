@@ -1,20 +1,35 @@
 /** @format */
 
-import type { KeyValueStore } from "./server/keyValueStore";
-
 export type Prettify<T> = { [K in keyof T]: T[K] } & {};
 
-export type BasePayload = { path: string; requestId: string };
+export type RequestMode = "ws" | "rest";
 
-export type PayloadOverloads =
-  | { method: "ALL" }
-  | { method: "SET"; key: string; value: any }
-  | { method: "GET" | "DELETE" | "HAS"; key: string }
-  | { method: "SET_MANY"; data: { key: string; value: any }[] }
-  | { method: "HAS_MANY" | "GET_MANY" | "DELETE_MANY"; keys: string[] }
-  | { method: "INIT"; options: Exclude<Omit<ConstructorParameters<typeof KeyValueStore>[0], "path">, string> };
+export type KVstoreOptions = {
+  path: string;
+  keysPerFile?: number;
+  debounceTime?: number;
+  maxDebounceCount?: number;
+};
 
-export type Payload = Prettify<BasePayload & PayloadOverloads>;
+export type DatabaseClientOptions = {
+  url: string;
+  port: number;
+  auth: string;
+  secure?: boolean;
+  mode?: RequestMode;
+  throwOnError?: boolean;
+  throwOnDisconnect?: boolean;
+  onError?: (err: Error) => void;
+  onDisconnect?: (address: string) => void;
+};
+
+export type DatabaseServerOptions = {
+  auth: string;
+  port: number;
+  onStderr?: (err: string) => void;
+  onStdout?: (data: string) => void;
+  ssl?: { key: string; cert: string; rejectUnauthorized?: boolean };
+};
 
 export type DatabaseClientRequest<T> = {
   promise: Promise<T>;
@@ -23,6 +38,22 @@ export type DatabaseClientRequest<T> = {
   reject: (err?: Error) => void;
 };
 
-export type SSLOptions = { key: string; cert: string; rejectUnauthorized?: boolean };
+export type Protocols<T = unknown> = {
+  INIT: { req: { method: "INIT"; options: Omit<KVstoreOptions, "path"> }; res: void };
+
+  ALL: { req: { method: "ALL" }; res: { [key: string]: T } };
+
+  HAS: { req: { method: "HAS"; key: string }; res: boolean };
+  HAS_MANY: { req: { method: "HAS_MANY"; keys: string[] }; res: boolean[] };
+
+  GET: { req: { method: "GET"; key: string }; res: T | null };
+  GET_MANY: { req: { method: "GET_MANY"; keys: string[] }; res: (T | null)[] };
+
+  SET: { req: { method: "SET"; key: string; value: T }; res: T };
+  SET_MANY: { req: { method: "SET_MANY"; data: { key: string; value: T }[] }; res: T[] };
+
+  DELETE: { req: { method: "DELETE"; key: string }; res: boolean };
+  DELETE_MANY: { req: { method: "DELETE_MANY"; keys: string[] }; res: boolean[] };
+};
 
 export type DatabaseServerResponse<T = unknown> = { requestId: string; data: T } | { requestId: string; error: string };

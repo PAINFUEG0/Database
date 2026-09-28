@@ -8,27 +8,24 @@ import { createServer as createHttpsServer } from "node:https";
 import { handleIncomingWebsocketMessages } from "./handleWebsocketMessages.js";
 import { createServer as createHttpServer, IncomingMessage, ServerResponse } from "node:http";
 
-import type { SSLOptions } from "../types.js";
+import type { DatabaseServerOptions } from "../types.js";
 import type { KeyValueStore } from "./keyValueStore.js";
 
 export const databases = new Map<string, KeyValueStore<any>>();
 const respond = (res: ServerResponse, code: number, data: any) =>
   res.writeHead(code, { "Content-Type": "application/json" }).end(JSON.stringify(data));
 
-export type T = (data: string) => void;
-
 export class DatabaseServer {
-  #onStderr: T;
-  #onStdout: T;
-
   boot!: () => Promise<void>;
+  #onStderr: NonNullable<DatabaseServerOptions["onStderr"]>;
+  #onStdout: NonNullable<DatabaseServerOptions["onStdout"]>;
 
   ip =
     Object.values(os.networkInterfaces())
       .flat()
       .find((iface) => iface?.family === "IPv4" && !iface.internal)?.address ?? "localhost";
 
-  constructor(options: { port: number; auth: string; ssl?: SSLOptions; onStdout?: T; onStderr?: T }) {
+  constructor(options: DatabaseServerOptions) {
     this.#onStdout = options.onStdout || console.log.bind(console);
     this.#onStderr = options.onStderr || console.error.bind(console);
 
@@ -41,7 +38,7 @@ export class DatabaseServer {
       const handler = (req: IncomingMessage, res: ServerResponse) => {
         if (!req.url?.startsWith("/rest")) return respond(res, 404, { error: "Not Found" });
         if (req.headers["authorization"] !== options.auth) return respond(res, 401, { error: "Unauthorized" });
-        handleRestRequests.call(server, req, res, this.#onStderr);
+        handleRestRequests(req, res, this.#onStderr);
       };
 
       const server = ssl ? createHttpsServer({ key, cert }, handler) : createHttpServer(handler);

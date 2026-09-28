@@ -1,13 +1,12 @@
 /** @format */
 
-import { actions } from "./actions.js";
-import { databases, T } from "./databaseServer.js";
+import { actions } from "./helpers.js";
+import { databases } from "./databaseServer.js";
 
-import type { Payload } from "../types.js";
 import type { WebSocket, RawData } from "ws";
 
-export async function handleIncomingWebsocketMessages(this: WebSocket, raw: RawData, onStderr: T) {
-  const PL: Payload = JSON.parse(raw.toString());
+export async function handleIncomingWebsocketMessages(this: WebSocket, raw: RawData, onStderr: (err: string) => void) {
+  const PL = JSON.parse(raw.toString());
 
   const { path, requestId } = PL;
   const db = databases.get(path)!;
