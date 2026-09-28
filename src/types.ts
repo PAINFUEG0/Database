@@ -1,7 +1,5 @@
 /** @format */
 
-export type Prettify<T> = { [K in keyof T]: T[K] } & {};
-
 export type RequestMode = "ws" | "rest";
 
 export type KVstoreOptions = {
