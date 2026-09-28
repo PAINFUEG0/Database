@@ -195,6 +195,10 @@ export class KeyValueStore<T = unknown> {
     return await this.#delete(key, false);
   }
 
+  async hasMany(keys: string[]): Promise<boolean[]> {
+    return await Promise.all(keys.map((K) => this.has(K)));
+  }
+
   async getMany(keys: string[]): Promise<(T | null)[]> {
     return await Promise.all(keys.map((K) => this.get(K)));
   }

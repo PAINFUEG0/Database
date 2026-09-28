@@ -10,8 +10,8 @@ export type PayloadOverloads =
   | { method: "ALL" }
   | { method: "SET"; key: string; value: any }
   | { method: "GET" | "DELETE" | "HAS"; key: string }
-  | { method: "GET_MANY" | "DELETE_MANY"; keys: string[] }
   | { method: "SET_MANY"; data: { key: string; value: any }[] }
+  | { method: "HAS_MANY" | "GET_MANY" | "DELETE_MANY"; keys: string[] }
   | { method: "INIT"; options: Exclude<Omit<ConstructorParameters<typeof KeyValueStore>[0], "path">, string> };
 
 export type Payload = Prettify<BasePayload & PayloadOverloads>;

@@ -101,6 +101,11 @@ export class Database<T> {
     return this.#makeReq<boolean[]>({ method: "DELETE_MANY", keys });
   }
 
+  async hasMany(keys: string[]) {
+    this.#validateKeys(keys);
+    return this.#makeReq<boolean[]>({ method: "HAS_MANY", keys });
+  }
+
   async getMany(keys: string[]) {
     this.#validateKeys(keys);
     return this.#makeReq<(T | null)[]>({ method: "GET_MANY", keys });
