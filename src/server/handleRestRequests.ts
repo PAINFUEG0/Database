@@ -1,11 +1,11 @@
 /** @format */
 
 import { actions } from "./actions.js";
-import { databases } from "./databaseServer.js";
+import { databases, T } from "./databaseServer.js";
 
 import type { Server, IncomingMessage, ServerResponse } from "node:http";
 
-export async function handleRestRequests(this: Server, req: IncomingMessage, res: ServerResponse) {
+export async function handleRestRequests(this: Server, req: IncomingMessage, res: ServerResponse, onStderr: T) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
@@ -19,6 +19,7 @@ export async function handleRestRequests(this: Server, req: IncomingMessage, res
     res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ data }));
   } catch (error) {
     error = error instanceof Error ? error.message : error;
+    onStderr(JSON.stringify(error));
     res.writeHead(500, { "Content-Type": "application/json" }).end(JSON.stringify({ error }));
   }
 }

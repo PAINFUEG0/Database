@@ -1,12 +1,12 @@
 /** @format */
 
 import { actions } from "./actions.js";
-import { databases } from "./databaseServer.js";
+import { databases, T } from "./databaseServer.js";
 
 import type { Payload } from "../types.js";
 import type { WebSocket, RawData } from "ws";
 
-export async function handleIncomingWebsocketMessages(this: WebSocket, raw: RawData) {
+export async function handleIncomingWebsocketMessages(this: WebSocket, raw: RawData, onStderr: T) {
   const PL: Payload = JSON.parse(raw.toString());
 
   const { path, requestId } = PL;
@@ -18,6 +18,7 @@ export async function handleIncomingWebsocketMessages(this: WebSocket, raw: RawD
     this.send(JSON.stringify({ requestId, data }));
   } catch (error) {
     error = error instanceof Error ? error.message : error;
+    onStderr(JSON.stringify(error));
     this.send(JSON.stringify({ requestId, error }));
   }
 }
