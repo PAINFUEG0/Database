@@ -13,6 +13,7 @@ export class DatabaseClient {
   #address: string;
   #mode: RequestMode;
   #webSocket?: WebSocket;
+  #paths = new Set<string>();
   #requests = new Map<string, DatabaseClientRequest<any>>();
 
   #throwOnError = true;
@@ -102,15 +103,18 @@ export class DatabaseClient {
     path: string,
     op?: { schema?: z.ZodType; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }
   ) {
+    if (this.#paths.has(path)) throw new Error(`A database at the same path (${path}) already exists !`);
+
     if (this.#mode == "ws" && this.#webSocket?.readyState !== WebSocket.OPEN)
       throw new Error(`Please do "await <DatabaseClient>.connect()" before trying to create a database !`);
 
     if (path.length === 0) throw new Error("Path cannot be empty");
     if (path === ".") throw new Error("Invalid path !! Path cannot be '.'");
-    if (path.length > 1000) throw new Error("Path too long max 1000 characters");
+    if (path.length > 1024) throw new Error("Path too long max 1024 characters");
     if (path.includes("..")) throw new Error("Invalid path !! Path cannot contain '..'");
 
     const db = new Database(this.#makeRequest.bind(this, path) as any, op?.schema);
+    this.#paths.add(path);
     return db.init(op);
   }
 }
