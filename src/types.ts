@@ -42,16 +42,16 @@ export type Protocols<T = unknown> = {
   ALL: { req: { method: "ALL" }; res: { [key: string]: T } };
 
   HAS: { req: { method: "HAS"; key: string }; res: boolean };
-  HAS_MANY: { req: { method: "HAS_MANY"; keys: string[] }; res: boolean[] };
+  HAS_MANY: { req: { method: "HAS_MANY"; keys: string[] }; res: Protocols<T>["HAS"]["res"][] };
 
   GET: { req: { method: "GET"; key: string }; res: T | null };
-  GET_MANY: { req: { method: "GET_MANY"; keys: string[] }; res: (T | null)[] };
-
-  SET: { req: { method: "SET"; key: string; value: T }; res: T };
-  SET_MANY: { req: { method: "SET_MANY"; data: { key: string; value: T }[] }; res: T[] };
+  GET_MANY: { req: { method: "GET_MANY"; keys: string[] }; res: Protocols<T>["GET"]["res"][] };
 
   DELETE: { req: { method: "DELETE"; key: string }; res: boolean };
-  DELETE_MANY: { req: { method: "DELETE_MANY"; keys: string[] }; res: boolean[] };
+  DELETE_MANY: { req: { method: "DELETE_MANY"; keys: string[] }; res: Protocols<T>["DELETE"]["res"][] };
+
+  SET: { req: { method: "SET"; key: string; value: T }; res: T };
+  SET_MANY: { req: { method: "SET_MANY"; data: { key: string; value: T }[] }; res: Protocols<T>["SET"]["res"][] };
 };
 
 export type DatabaseServerResponse<T = unknown> = { requestId: string; data: T } | { requestId: string; error: string };
