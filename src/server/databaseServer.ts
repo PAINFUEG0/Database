@@ -20,7 +20,7 @@ export class DatabaseServer {
   #onStderr: NonNullable<DatabaseServerOptions["onStderr"]>;
   #onStdout: NonNullable<DatabaseServerOptions["onStdout"]>;
 
-  ip =
+  #ip =
     Object.values(os.networkInterfaces())
       .flat()
       .find((iface) => iface?.family === "IPv4" && !iface.internal)?.address ?? "localhost";
@@ -54,8 +54,8 @@ export class DatabaseServer {
           resolve();
           const port = (server.address()! as any).port;
 
-          this.#onStdout(`REST - http${ssl ? "s" : ""}://${this.ip}:${port}/rest`);
-          this.#onStdout(`WebSocket - ws${ssl ? "s" : ""}://${this.ip}:${port}/ws`);
+          this.#onStdout(`REST - http${ssl ? "s" : ""}://${this.#ip}:${port}/rest`);
+          this.#onStdout(`WebSocket - ws${ssl ? "s" : ""}://${this.#ip}:${port}/ws`);
 
           wss.on("connection", (ws, req) => {
             this.#onStdout(`Established a new connection from ${req.socket.remoteAddress}`);
