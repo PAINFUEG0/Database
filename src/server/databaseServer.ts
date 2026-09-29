@@ -49,8 +49,8 @@ export class DatabaseServer {
     const ssl = this.#key && this.#cert;
 
     const server = ssl
-      ? createHttpsServer({ key: this.#key, cert: this.#cert }, this.#requestHandler)
-      : createHttpServer(this.#requestHandler);
+      ? createHttpsServer({ key: this.#key, cert: this.#cert }, this.#requestHandler.bind(this))
+      : createHttpServer(this.#requestHandler.bind(this));
 
     const wss = new WebSocketServer({
       server,
