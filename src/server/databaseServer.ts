@@ -40,9 +40,11 @@ export class DatabaseServer {
   }
 
   #requestHandler(req: IncomingMessage, res: ServerResponse) {
-    if (!req.url?.startsWith("/rest")) return respond(res, 404, { error: "Not Found" });
-    if (req.headers["authorization"] !== this.#auth) return respond(res, 401, { error: "Unauthorized" });
-    handleRestRequests(req, res, this.#onStderr).catch((error) => this.#onStderr(JSON.stringify(error)));
+    if (req.url?.startsWith("/rest") && req.method === "POST")
+      if (req.headers["authorization"] !== this.#auth) return respond(res, 401, { error: "Unauthorized" });
+      else return handleRestRequests(req, res, this.#onStderr).catch((error) => this.#onStderr(JSON.stringify(error)));
+
+    return respond(res, 404, { error: "Not Found" });
   }
 
   async boot() {
