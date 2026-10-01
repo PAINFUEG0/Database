@@ -5,7 +5,7 @@ import type { Protocols } from "../types";
 
 export class Database<T> {
   #schema?: z.ZodType;
-  #reservedWords = ["__proto__", "prototype", "constructor"];
+  #reservedWords = new Set([...Object.getOwnPropertyNames(Object.prototype), "prototype"]);
   #makeRequest: <P extends Protocols<T>[keyof Protocols<T>]["req"]>(
     PL: P
   ) => Promise<Protocols<T>[keyof Protocols<T> & P["method"]]["res"]>;
@@ -82,8 +82,7 @@ export class Database<T> {
     for (let i = 0; i < keys.length; i++) {
       const _ = `Invalid key provided ${keys.length > 1 ? `at keys[${i}]` : ""}\n`;
 
-      const __ = this.#reservedWords.findIndex((word) => keys[i] === word);
-      if (__ !== -1) throw new Error(`${_} Reserved word (${this.#reservedWords[__]}) not allowed`);
+      if (this.#reservedWords.has(keys[i])) throw new Error(`${_} Reserved word (${keys[i]}) not allowed`);
 
       if (!keys[i] || typeof keys[i] !== "string" || keys[i].length === 0 || keys[i].length > 255)
         throw new Error(`${_} Expexcted : string literal with length > 0 < 255\nGot : ${key}`);
