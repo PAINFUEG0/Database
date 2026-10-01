@@ -6,6 +6,7 @@ import { Database } from "./database.js";
 import { requestFactory } from "./requestFactory.js";
 
 import type { z } from "zod";
+import { isAbsolute } from "node:path";
 import type { RequestMode, DatabaseClientRequest, DatabaseClientOptions, DatabaseServerResponse } from "../types.js";
 
 export class DatabaseClient {
@@ -109,9 +110,10 @@ export class DatabaseClient {
       throw new Error(`Please do "await <DatabaseClient>.connect()" before trying to create a database !`);
 
     if (path.length === 0) throw new Error("Path cannot be empty");
-    if (path === ".") throw new Error("Invalid path !! Path cannot be '.'");
-    if (path.length > 1024) throw new Error("Path too long max 1024 characters");
-    if (path.includes("..")) throw new Error("Invalid path !! Path cannot contain '..'");
+    if (isAbsolute(path)) throw new Error("Path cannot be absolute");
+    if (path === ".") throw new Error("Invalid path: cannot be '.'");
+    if (path.length > 1024) throw new Error("Path too long: max 1024 characters");
+    if (path.split(/[\\/]/).includes("..")) throw new Error("Invalid path: cannot contain '..'");
 
     const db = new Database(this.#makeRequest.bind(this, path) as any, op?.schema);
     this.#paths.add(path);
