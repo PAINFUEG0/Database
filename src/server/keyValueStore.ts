@@ -2,7 +2,6 @@
 
 import * as fs from "node:fs";
 import { resolve } from "node:path";
-import { setTimeout as sleep } from "node:timers/promises";
 
 import type { KVstoreOptions } from "../types";
 
@@ -240,23 +239,5 @@ export class KeyValueStore<T = unknown> {
     const result = {};
     for (const data of this.#cache.values()) Object.assign(result, data);
     return result;
-  }
-
-  async nuke(): Promise<void> {
-    if (this.#isWriting) return await sleep(500).then(() => this.nuke());
-
-    this.#timer?.close();
-    this.#timer = undefined;
-
-    this.#isWriting = false;
-    this.#debounceCount = 0;
-    this.#writeQueue.clear();
-
-    this.#cache.clear();
-    this.#reverseKeymap = {};
-
-    fs.closeSync(this.#journal);
-    fs.rmSync(this.#path, { recursive: true, force: true });
-    this.init();
   }
 }
