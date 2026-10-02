@@ -98,7 +98,7 @@ export class DatabaseClient {
     op: { schema: T; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }
   ): Promise<Database<z.infer<T>>>;
 
-  createDatabase(path: string, op?: { schema?: z.ZodType; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }) {
+  async createDatabase(path: string, op?: { schema?: z.ZodType; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }) {
     if (this.#paths.has(path)) throw new Error(`A database at the same path (${path}) already exists !`);
 
     if (this.#mode == "ws" && this.#webSocket?.readyState !== WebSocket.OPEN)
@@ -112,9 +112,9 @@ export class DatabaseClient {
 
     const requestMaker = this.mode === "ws" ? this.#sendWSmessage.bind(this, path) : this.#sendRestRequest.bind(this, path);
 
-    const db = new Database(requestMaker as any, op?.schema);
+    const db = await new Database(requestMaker as any, op?.schema).init(op);
     this.#paths.add(path);
-    return db.init(op);
+    return db;
   }
 
   async #sendRestRequest<P>(path: string, PL: Protocols<P>[keyof Protocols<P>]["req"]): Promise<P> {
