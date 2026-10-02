@@ -38,16 +38,20 @@ export class KeyValueStore<T = unknown> {
   async init(): Promise<this> {
     if (!fs.existsSync(this.#path)) fs.mkdirSync(this.#path, { recursive: true });
 
-    for (const file of fs.readdirSync(this.#path))
-      file.endsWith(".tmp") && fs.renameSync(resolve(this.#path, file), resolve(this.#path, file.replace(".tmp", "")));
+    for (const file of fs.readdirSync(this.#path)) file.endsWith(".tmp") && fs.unlinkSync(resolve(this.#path, file));
 
     this.#loadFilesIntoCache();
+
+    if (fs.existsSync(this.#tempJournalPath)) {
+      const current = fs.existsSync(this.#journalPath) ? fs.readFileSync(this.#journalPath, "utf-8") : "";
+      const old = fs.readFileSync(this.#tempJournalPath, "utf-8");
+      fs.writeFileSync(this.#journalPath, `${old}\n${current}`);
+    }
+
     this.#journal = fs.openSync(this.#journalPath, "a");
 
-    if (fs.existsSync(this.#journalPath)) {
-      this.replayJournal();
-      await this.#write();
-    }
+    this.replayJournal();
+    await this.#write();
 
     fs.closeSync(fs.openSync(this.#journalPath, "w"));
     this.#journal = fs.openSync(this.#journalPath, "a");
