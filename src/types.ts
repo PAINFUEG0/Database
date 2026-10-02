@@ -26,7 +26,7 @@ export type DatabaseServerOptions = {
   port: number;
   onStderr?: (err: string) => void;
   onStdout?: (data: string) => void;
-  ssl?: { key: string; cert: string; rejectUnauthorized?: boolean };
+  ssl?: { key: string; cert: string };
 };
 
 export type DatabaseClientRequest<T> = {
@@ -37,7 +37,7 @@ export type DatabaseClientRequest<T> = {
 };
 
 export type Protocols<T = unknown> = {
-  INIT: { req: { method: "INIT"; options: Omit<KVstoreOptions, "path"> }; res: void };
+  INIT: { req: { method: "INIT"; options: Omit<KVstoreOptions, "path"> }; res: boolean };
 
   ALL: { req: { method: "ALL" }; res: { [key: string]: T } };
 
