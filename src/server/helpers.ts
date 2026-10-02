@@ -8,8 +8,12 @@ import type { Protocols } from "../types.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 export const actions = {
-  INIT: async (_, PL) =>
-    void databases.set(PL.path, await new Store({ path: resolve("./", "storage", PL.path), ...PL.options }).init()),
+  INIT: async (_, PL) => {
+    if (databases.get(PL.path)) return false;
+    const kv = new Store({ path: resolve("./", "storage", PL.path), ...PL.options });
+    databases.set(PL.path, await kv.init());
+    return true;
+  },
 
   ALL: (db) => Promise.resolve(db.all()),
 
