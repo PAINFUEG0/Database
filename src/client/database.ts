@@ -10,15 +10,13 @@ export class Database<T> {
     PL: P
   ) => Promise<Protocols<T>[keyof Protocols<T> & P["method"]]["res"]>;
 
-  constructor(
-    payloadSenderFunction: <D>(PL: Protocols<D>[keyof Protocols<D>]["req"]) => Promise<D>,
-    schema?: z.ZodType
-  ) {
+  constructor(payloadSenderFunction: <D>(PL: Protocols<D>[keyof Protocols<D>]["req"]) => Promise<D>, schema?: z.ZodType) {
     this.#schema = schema;
     this.#makeRequest = payloadSenderFunction;
   }
 
   async init(options: Protocols<T>["INIT"]["req"]["options"] = {}) {
+    "schema" in options && delete options.schema;
     await this.#makeRequest({ method: "INIT", options });
     return this;
   }
