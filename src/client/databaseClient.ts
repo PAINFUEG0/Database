@@ -2,12 +2,12 @@
 
 import { WebSocket } from "ws";
 import { once } from "node:events";
+import { isAbsolute } from "node:path";
 import { Database } from "./database.js";
-import { requestFactory } from "./requestFactory.js";
+import { randomUUID } from "node:crypto";
 
 import type { z } from "zod";
-import { isAbsolute } from "node:path";
-import type { RequestMode, DatabaseClientRequest, DatabaseClientOptions, DatabaseServerResponse } from "../types.js";
+import type { RequestMode, DatabaseClientRequest, DatabaseClientOptions, DatabaseServerResponse, Protocols } from "../types.js";
 
 export class DatabaseClient {
   #auth: string;
@@ -22,8 +22,6 @@ export class DatabaseClient {
 
   #onError: (err: Error) => void;
   #onDisconnect: (address: string) => void;
-
-  #makeRequest = requestFactory.call(this);
 
   get auth() {
     return this.#auth;
@@ -100,10 +98,7 @@ export class DatabaseClient {
     op: { schema: T; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }
   ): Promise<Database<z.infer<T>>>;
 
-  createDatabase(
-    path: string,
-    op?: { schema?: z.ZodType; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }
-  ) {
+  createDatabase(path: string, op?: { schema?: z.ZodType; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }) {
     if (this.#paths.has(path)) throw new Error(`A database at the same path (${path}) already exists !`);
 
     if (this.#mode == "ws" && this.#webSocket?.readyState !== WebSocket.OPEN)
@@ -115,8 +110,36 @@ export class DatabaseClient {
     if (path.length > 1024) throw new Error("Path too long: max 1024 characters");
     if (path.split(/[\\/]/).includes("..")) throw new Error("Invalid path: cannot contain '..'");
 
-    const db = new Database(this.#makeRequest.bind(this, path) as any, op?.schema);
+    const requestMaker = this.mode === "ws" ? this.#sendWSmessage.bind(this, path) : this.#sendRestRequest.bind(this, path);
+
+    const db = new Database(requestMaker as any, op?.schema);
     this.#paths.add(path);
     return db.init(op);
+  }
+
+  async #sendRestRequest<P>(path: string, PL: Protocols<P>[keyof Protocols<P>]["req"]): Promise<P> {
+    return fetch(this.address, {
+      method: "POST",
+      body: JSON.stringify({ ...PL, path }),
+      headers: { "Content-Type": "application/json", Authorization: this.auth }
+    }).then(async (raw) => {
+      const res = await (<Promise<DatabaseServerResponse<P>>>raw.json());
+      if ("error" in res) throw new Error(res.error);
+      return res.data;
+    });
+  }
+
+  async #sendWSmessage<P>(path: string, PL: Protocols<P>[keyof Protocols<P>]["req"]): Promise<P> {
+    if (this.webSocket?.readyState !== WebSocket.OPEN) throw new Error(`Websocket Connection to database server is not open!`);
+
+    const requestId = randomUUID();
+    const request = <DatabaseClientRequest<P>>{
+      ...Promise.withResolvers<P>(),
+      timeout: setTimeout(() => (this.requests.delete(requestId), request.reject(new Error("Request timed out after 60 seconds."))), 60000)
+    };
+
+    this.requests.set(requestId, request);
+    this.webSocket!.send(JSON.stringify({ ...PL, requestId, path }));
+    return request.promise;
   }
 }
