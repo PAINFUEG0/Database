@@ -7,10 +7,15 @@ import { KeyValueStore as Store } from "./keyValueStore.js";
 import type { Protocols } from "../types.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
+const initalized = new Set<string>();
+
 export const actions = {
   INIT: async (_, PL) => {
-    if (databases.get(PL.path)) return false;
-    const kv = new Store({ path: resolve("./", "storage", PL.path), ...PL.options });
+    const path = resolve("./", "storage", PL.path);
+    if (initalized.has(path)) return false;
+    initalized.add(path);
+
+    const kv = new Store({ path, ...PL.options });
     databases.set(PL.path, await kv.init());
     return true;
   },
