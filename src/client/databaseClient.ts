@@ -14,7 +14,7 @@ export class DatabaseClient {
   #address: string;
   #mode: RequestMode;
   #webSocket?: WebSocket;
-  #paths = new Set<string>();
+  #paths = new Map<string, "pending" | "ready">();
   #requests = new Map<string, DatabaseClientRequest<any>>();
 
   #throwOnError = true;
@@ -112,8 +112,12 @@ export class DatabaseClient {
 
     const requestMaker = this.mode === "ws" ? this.#sendWSmessage.bind(this, path) : this.#sendRestRequest.bind(this, path);
 
-    const db = await new Database(requestMaker as any, op?.schema).init(op);
-    this.#paths.add(path);
+    this.#paths.set(path, "pending");
+    const db = await new Database(requestMaker as any, op?.schema).init(op).catch((e) => {
+      this.#paths.delete(path);
+      throw new Error(e);
+    });
+    this.#paths.set(path, "ready");
     return db;
   }
 
