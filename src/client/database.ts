@@ -16,7 +16,6 @@ export class Database<T> {
   }
 
   async init(options: Protocols<T>["INIT"]["req"]["options"] = {}) {
-    "schema" in options && delete options.schema;
     await this.#makeRequest({ method: "INIT", options });
     return this;
   }
