@@ -70,7 +70,7 @@ export class DatabaseClient {
 
       clearTimeout(request.timeout);
       this.#requests.delete(response.requestId);
-      "error" in response ? request.reject(new Error(JSON.stringify(response))) : request.resolve(response.data);
+      "error" in response ? request.reject(new Error(response.error)) : request.resolve(response.data);
     });
 
     this.#webSocket.on("error", (err) => {
@@ -115,7 +115,7 @@ export class DatabaseClient {
     this.#paths.set(path, "pending");
     const db = await new Database(requestMaker as any, op?.schema).init(op).catch((e) => {
       this.#paths.delete(path);
-      throw new Error(e);
+      throw e;
     });
     this.#paths.set(path, "ready");
     return db;
