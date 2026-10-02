@@ -65,8 +65,7 @@ export class KeyValueStore<T = unknown> {
   }
 
   #lookforSpaciousFile(): string | null {
-    for (const [fileName, keysInFile] of Object.entries(this.#keymap))
-      if (keysInFile.size < this.#keysPerFile) return fileName;
+    for (const [fileName, keysInFile] of Object.entries(this.#keymap)) if (keysInFile.size < this.#keysPerFile) return fileName;
     return null;
   }
 

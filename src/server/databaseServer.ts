@@ -70,9 +70,7 @@ export class DatabaseServer {
 
         wss.on("connection", (ws, req) => {
           ws.on("message", (raw) =>
-            handleIncomingWebsocketMessages
-              .call(ws, raw, this.#onStderr)
-              .catch((error) => this.#onStderr(JSON.stringify(error)))
+            handleIncomingWebsocketMessages.call(ws, raw, this.#onStderr).catch((error) => this.#onStderr(JSON.stringify(error)))
           );
           ws.on("error", (err) => this.#onStderr(JSON.stringify(err)));
           this.#onStdout(`Established a new connection from ${req.socket.remoteAddress}`);
