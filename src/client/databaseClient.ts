@@ -6,7 +6,7 @@ import { Database } from "./database.js";
 import { randomUUID } from "node:crypto";
 import { posix } from "node:path";
 
-import type { z } from "zod";
+import { z } from "zod";
 import type { RequestMode, DatabaseClientRequest, DatabaseClientOptions, DatabaseServerResponse, Protocols } from "../types.js";
 
 export class DatabaseClient {
@@ -110,18 +110,25 @@ export class DatabaseClient {
     if (path === "" || path === ".") throw new Error("Invalid path: cannot resolve to the storage root");
     if (path === ".." || path.startsWith("../")) throw new Error("Invalid path: cannot escape the storage directory");
 
+    for (const key of ["debounceTime", "maxDebounceCount", "keysPerFile"] as const)
+      if (op && key in op && !z.number().min(0).max(4096).safeParse(op[key]).success)
+        throw new Error(`Invalid option : Provided option '${key}' must be > 0 <= 4096. Got - ${op[key]}`);
+
     const requestMaker = this.mode === "ws" ? this.#sendWSmessage.bind(this, path) : this.#sendRestRequest.bind(this, path);
 
     this.#paths.add(path);
-    return await new Database(requestMaker as any, op?.schema).init(op).catch((e) => {
-      this.#paths.delete(path);
-      throw e;
-    });
+    return await new Database(requestMaker as any, op?.schema)
+      .init({ debounceTime: op?.debounceTime, maxDebounceCount: op?.maxDebounceCount, keysPerFile: op?.keysPerFile })
+      .catch((e) => {
+        this.#paths.delete(path);
+        throw e;
+      });
   }
 
   async #sendRestRequest<P>(path: string, PL: Protocols<P>[keyof Protocols<P>]["req"]): Promise<P> {
     return fetch(this.address, {
       method: "POST",
+      signal: AbortSignal.timeout(60_000),
       body: JSON.stringify({ ...PL, path }),
       headers: { "Content-Type": "application/json", Authorization: this.auth }
     }).then(async (raw) => {
