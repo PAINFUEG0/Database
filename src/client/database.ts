@@ -18,7 +18,8 @@ export class Database<T> {
 
   async init(options: Protocols<T>["INIT"]["req"]["options"] = {}) {
     if (this.#initialized) return this;
-    this.#initialized = await this.#makeRequest({ method: "INIT", options });
+    await this.#makeRequest({ method: "INIT", options });
+    this.#initialized = true;
     return this;
   }
 

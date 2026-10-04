@@ -99,20 +99,26 @@ export class DatabaseClient {
   ): Promise<Database<z.infer<T>>>;
 
   async createDatabase(path: string, op?: { schema?: z.ZodType; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }) {
+    path = posix.normalize(path.replace(/\\/g, "/")).replace(/\/+$/, "").trim();
+
+    for (const K of ["debounceTime", "maxDebounceCount", "keysPerFile"] as const)
+      if (op?.[K] !== undefined && !z.number().int().min(1).max(4096).safeParse(op[K]).success)
+        throw new Error(`Invalid option '${op[K]}'.\nExpected : Integer > 0 <= 4096.\nGot : ${op[K]}\n`);
+
+    if (path.length > 256)
+      throw new Error(`Invalid database path.\nExpected : String <= 256 characters.\nGot : ${path.length} characters.\n`);
+
+    if (this.#paths.has(path))
+      throw new Error(`Duplicate database path.\nExpected : A path that does not already exist.\nGot : '${path}'.\n`);
+
+    if (posix.isAbsolute(path) || /^[a-zA-Z]:/.test(path))
+      throw new Error(`Invalid database path.\nExpected : A relative (non-absolute) path.\nGot : '${path}'.\n`);
+
+    if (path === "" || path === "." || path === ".." || path.startsWith("../"))
+      throw new Error(`Invalid database path.\nExpected : A path that resolves within the storage directory.\nGot : '${path}'.\n`);
+
     if (this.#mode == "ws" && this.#webSocket?.readyState !== WebSocket.OPEN)
-      throw new Error(`Please do "await <DatabaseClient>.connect()" before trying to create a database !`);
-
-    path = posix.normalize(path.replace(/\\/g, "/")).replace(/\/+$/, "");
-
-    if (path.length > 256) throw new Error("Path too long: max 256 characters");
-    if (this.#paths.has(path)) throw new Error("A database at the same path already exists !");
-    if (posix.isAbsolute(path) || /^[a-zA-Z]:/.test(path)) throw new Error("Path cannot be absolute");
-    if (path === "" || path === ".") throw new Error("Invalid path: cannot resolve to the storage root");
-    if (path === ".." || path.startsWith("../")) throw new Error("Invalid path: cannot escape the storage directory");
-
-    for (const key of ["debounceTime", "maxDebounceCount", "keysPerFile"] as const)
-      if (op && key in op && !z.number().min(0).max(4096).safeParse(op[key]).success)
-        throw new Error(`Invalid option : Provided option '${key}' must be > 0 <= 4096. Got - ${op[key]}`);
+      throw new Error(`Invalid operation.\nExpected : WebSocket connection to be open.\nGot : WebSocket is not connected.\n`);
 
     const requestMaker = this.mode === "ws" ? this.#sendWSmessage.bind(this, path) : this.#sendRestRequest.bind(this, path);
 
