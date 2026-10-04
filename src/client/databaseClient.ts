@@ -2,9 +2,9 @@
 
 import { WebSocket } from "ws";
 import { once } from "node:events";
-import { isAbsolute } from "node:path";
 import { Database } from "./database.js";
 import { randomUUID } from "node:crypto";
+import { posix } from "node:path";
 
 import type { z } from "zod";
 import type { RequestMode, DatabaseClientRequest, DatabaseClientOptions, DatabaseServerResponse, Protocols } from "../types.js";
@@ -14,7 +14,7 @@ export class DatabaseClient {
   #address: string;
   #mode: RequestMode;
   #webSocket?: WebSocket;
-  #paths = new Map<string, "pending" | "ready">();
+  #paths = new Set<string>();
   #requests = new Map<string, DatabaseClientRequest<any>>();
 
   #throwOnError = true;
@@ -99,26 +99,24 @@ export class DatabaseClient {
   ): Promise<Database<z.infer<T>>>;
 
   async createDatabase(path: string, op?: { schema?: z.ZodType; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }) {
-    if (this.#paths.has(path)) throw new Error(`A database at the same path (${path}) already exists !`);
-
     if (this.#mode == "ws" && this.#webSocket?.readyState !== WebSocket.OPEN)
       throw new Error(`Please do "await <DatabaseClient>.connect()" before trying to create a database !`);
 
-    if (path.length === 0) throw new Error("Path cannot be empty");
-    if (isAbsolute(path)) throw new Error("Path cannot be absolute");
-    if (path === ".") throw new Error("Invalid path: cannot be '.'");
-    if (path.length > 1024) throw new Error("Path too long: max 1024 characters");
-    if (path.split(/[\\/]/).includes("..")) throw new Error("Invalid path: cannot contain '..'");
+    path = posix.normalize(path.replace(/\\/g, "/")).replace(/\/+$/, "");
+
+    if (path.length > 256) throw new Error("Path too long: max 256 characters");
+    if (this.#paths.has(path)) throw new Error("A database at the same path already exists !");
+    if (posix.isAbsolute(path) || /^[a-zA-Z]:/.test(path)) throw new Error("Path cannot be absolute");
+    if (path === "" || path === ".") throw new Error("Invalid path: cannot resolve to the storage root");
+    if (path === ".." || path.startsWith("../")) throw new Error("Invalid path: cannot escape the storage directory");
 
     const requestMaker = this.mode === "ws" ? this.#sendWSmessage.bind(this, path) : this.#sendRestRequest.bind(this, path);
 
-    this.#paths.set(path, "pending");
-    const db = await new Database(requestMaker as any, op?.schema).init(op).catch((e) => {
+    this.#paths.add(path);
+    return await new Database(requestMaker as any, op?.schema).init(op).catch((e) => {
       this.#paths.delete(path);
       throw e;
     });
-    this.#paths.set(path, "ready");
-    return db;
   }
 
   async #sendRestRequest<P>(path: string, PL: Protocols<P>[keyof Protocols<P>]["req"]): Promise<P> {
