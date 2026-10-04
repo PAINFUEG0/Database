@@ -79,10 +79,9 @@ export class DatabaseClient {
     });
 
     this.#webSocket.once("close", () => {
+      this.#requests.forEach((request) => request.reject(new Error("Database server disconnected !")));
       if (this.#throwOnDisconnect) throw new Error(`Database server disconnected ! Address : ${this.#address}`);
       else this.#onDisconnect(this.#address);
-
-      this.#requests.forEach((request) => request.reject(new Error("Database server disconnected !")));
     });
   }
 
