@@ -79,7 +79,8 @@ export class DatabaseClient {
     });
 
     this.#webSocket.once("close", () => {
-      this.#requests.forEach((request) => request.reject(new Error("Database server disconnected !")));
+      this.#requests.forEach((request) => (clearTimeout(request.timeout), request.reject(new Error("Database server disconnected !"))));
+      this.#requests.clear();
       if (this.#throwOnDisconnect) throw new Error(`Database server disconnected ! Address : ${this.#address}`);
       else this.#onDisconnect(this.#address);
     });
@@ -98,11 +99,11 @@ export class DatabaseClient {
   ): Promise<Database<z.infer<T>>>;
 
   async createDatabase(path: string, op?: { schema?: z.ZodType; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }) {
-    path = posix.normalize(path.replace(/\\/g, "/")).replace(/\/+$/, "").trim();
+    path = posix.normalize(path.trim().replace(/\\/g, "/")).replace(/[\s/]+$/, "");
 
     for (const K of ["debounceTime", "maxDebounceCount", "keysPerFile"] as const)
       if (op?.[K] !== undefined && !z.number().int().min(1).max(4096).safeParse(op[K]).success)
-        throw new Error(`Invalid option '${op[K]}'.\nExpected : Integer > 0 <= 4096.\nGot : ${op[K]}\n`);
+        throw new Error(`Invalid option '${K}'.\nExpected : Integer > 0 <= 4096.\nGot : ${op[K]}\n`);
 
     if (path.length > 256)
       throw new Error(`Invalid database path.\nExpected : String <= 256 characters.\nGot : ${path.length} characters.\n`);
