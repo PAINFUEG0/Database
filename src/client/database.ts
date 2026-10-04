@@ -1,10 +1,11 @@
 /** @format */
 
-import type { z } from "zod";
+import { z } from "zod";
 import type { Protocols } from "../types";
 
 export class Database<T> {
   #schema?: z.ZodType;
+  #initialized = false;
   #reservedWords = new Set([...Object.getOwnPropertyNames(Object.prototype), "prototype"]);
   #makeRequest: <P extends Protocols<T>[keyof Protocols<T>]["req"]>(
     PL: P
@@ -16,7 +17,8 @@ export class Database<T> {
   }
 
   async init(options: Protocols<T>["INIT"]["req"]["options"] = {}) {
-    await this.#makeRequest({ method: "INIT", options });
+    if (this.#initialized) return this;
+    this.#initialized = await this.#makeRequest({ method: "INIT", options });
     return this;
   }
 
