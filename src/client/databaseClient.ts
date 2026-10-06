@@ -23,26 +23,6 @@ export class DatabaseClient {
   #onError: (err: Error) => void;
   #onDisconnect: (address: string) => void;
 
-  get auth() {
-    return this.#auth;
-  }
-
-  get address() {
-    return this.#address;
-  }
-
-  get mode() {
-    return this.#mode;
-  }
-
-  get webSocket() {
-    return this.#webSocket;
-  }
-
-  get requests() {
-    return this.#requests;
-  }
-
   constructor(op: DatabaseClientOptions) {
     this.#auth = op.auth;
     this.#mode = op.mode ?? "ws";
@@ -107,7 +87,7 @@ export class DatabaseClient {
     if (this.#mode == "ws" && this.#webSocket?.readyState !== WebSocket.OPEN)
       throw new Error(`Invalid operation.\nExpected : WebSocket connection to be open.\nGot : WebSocket is not connected.\n`);
 
-    const requestMaker = this.mode === "ws" ? this.#sendWSmessage.bind(this, path) : this.#sendRestRequest.bind(this, path);
+    const requestMaker = this.#mode === "ws" ? this.#sendWSmessage.bind(this, path) : this.#sendRestRequest.bind(this, path);
 
     this.#paths.add(path);
     return await new Database(requestMaker as any, op?.schema)
@@ -119,11 +99,11 @@ export class DatabaseClient {
   }
 
   async #sendRestRequest<P>(path: string, PL: Protocols<P>[keyof Protocols<P>]["req"]): Promise<P> {
-    return fetch(this.address, {
+    return fetch(this.#address, {
       method: "POST",
       signal: AbortSignal.timeout(60_000),
       body: JSON.stringify({ ...PL, path }),
-      headers: { "Content-Type": "application/json", Authorization: this.auth }
+      headers: { "Content-Type": "application/json", Authorization: this.#auth }
     }).then(async (raw) => {
       const res = await (<Promise<DatabaseServerResponse<P>>>raw.json());
       if ("error" in res) throw new Error(res.error);
@@ -132,16 +112,16 @@ export class DatabaseClient {
   }
 
   async #sendWSmessage<P>(path: string, PL: Protocols<P>[keyof Protocols<P>]["req"]): Promise<P> {
-    if (this.webSocket?.readyState !== WebSocket.OPEN) throw new Error(`Websocket Connection to database server is not open!`);
+    if (this.#webSocket?.readyState !== WebSocket.OPEN) throw new Error(`Websocket Connection to database server is not open!`);
 
     const requestId = randomUUID();
     const request = <DatabaseClientRequest<P>>{
       ...Promise.withResolvers<P>(),
-      timeout: setTimeout(() => (this.requests.delete(requestId), request.reject(new Error("Request timed out after 60 seconds."))), 60000)
+      timeout: setTimeout(() => (this.#requests.delete(requestId), request.reject(new Error("Request timed out after 60 seconds."))), 60000)
     };
 
-    this.requests.set(requestId, request);
-    this.webSocket!.send(JSON.stringify({ ...PL, requestId, path }));
+    this.#requests.set(requestId, request);
+    this.#webSocket!.send(JSON.stringify({ ...PL, requestId, path }));
     return request.promise;
   }
 }
