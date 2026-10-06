@@ -44,7 +44,12 @@ export const actions = {
     const path = resolve("./", "storage", PL.path);
     if (promises.has(path)) return promises.get(path)!;
 
-    const kv = new Store({ ...PL.options, path });
+    const kv = new Store({
+      path,
+      keysPerFile: PL.options.keysPerFile,
+      debounceTime: PL.options.debounceTime,
+      maxDebounceCount: PL.options.maxDebounceCount
+    });
 
     const ready = kv.init().then(
       () => (databases.set(PL.path, kv), true),
