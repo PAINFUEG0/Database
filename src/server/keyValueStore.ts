@@ -26,6 +26,8 @@ export class KeyValueStore<T = unknown> {
   #reverseKeymap: { [K: string]: string } = {};
   #cache = new Map<string, { [K: string]: T }>();
 
+  #reservedWords = new Set([...Object.getOwnPropertyNames(Object.prototype), "prototype"]);
+
   constructor(op: KVstoreOptions) {
     this.#path = resolve(op.path);
     this.#journalPath = resolve(this.#path, "write-ahead-log.jsonl");
@@ -184,31 +186,39 @@ export class KeyValueStore<T = unknown> {
   }
 
   async has(key: string): Promise<boolean> {
+    this.#validateKeys(key);
     return !!this.#reverseKeymap[key];
   }
 
   async get(key: string): Promise<T | null> {
+    this.#validateKeys(key);
     const res = this.#reverseKeymap[key];
     return res ? (this.#cache.get(res)![key] as T) : null;
   }
 
   async set(key: string, value: T): Promise<T> {
+    this.#validateKeys(key);
     return await this.#set(key, value, false);
   }
 
   async delete(key: string): Promise<boolean> {
+    this.#validateKeys(key);
     return await this.#delete(key, false);
   }
 
   async hasMany(keys: string[]): Promise<boolean[]> {
+    this.#validateKeys(keys);
     return await Promise.all(keys.map((K) => this.has(K)));
   }
 
   async getMany(keys: string[]): Promise<(T | null)[]> {
+    this.#validateKeys(keys);
     return await Promise.all(keys.map((K) => this.get(K)));
   }
 
   async setMany(data: { key: string; value: T }[]): Promise<T[]> {
+    this.#validateKeys(data.map(({ key }) => key));
+
     const _: string[] = [];
 
     const __ = await Promise.all(
@@ -224,6 +234,8 @@ export class KeyValueStore<T = unknown> {
   }
 
   async deleteMany(keys: string[]): Promise<boolean[]> {
+    this.#validateKeys(keys);
+
     const _: string[] = [];
 
     const __ = await Promise.all(
@@ -243,5 +255,18 @@ export class KeyValueStore<T = unknown> {
     const result = {};
     for (const data of this.#cache.values()) Object.assign(result, data);
     return result;
+  }
+
+  #validateKeys(key: unknown | unknown[]) {
+    const keys = Array.isArray(key) ? key : [key];
+
+    for (let i = 0; i < keys.length; i++) {
+      const _ = `Invalid key provided ${keys.length > 1 ? `at position ${i}` : ""}\n`;
+
+      if (this.#reservedWords.has(keys[i])) throw `${_}Reserved word '${keys[i]}' not allowed\n`;
+
+      if (!keys[i] || typeof keys[i] !== "string" || keys[i].length === 0 || keys[i].length > 255)
+        throw `${_}Expexcted : string literal with length > 0 < 255\nGot : ${keys[i]}\n`;
+    }
   }
 }
