@@ -1,8 +1,8 @@
 /** @format */
 
 import { WebSocket } from "ws";
-import { once } from "node:events";
 import { posix } from "node:path";
+import { once } from "node:events";
 import { Database } from "./database.js";
 import { randomUUID } from "node:crypto";
 
