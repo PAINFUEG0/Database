@@ -53,6 +53,7 @@ export class KeyValueStore<T = unknown> {
     this.replayJournal();
     await this.#write();
 
+    fs.closeSync(this.#journal);
     fs.closeSync(fs.openSync(this.#journalPath, "w"));
     this.#journal = fs.openSync(this.#journalPath, "a");
 
