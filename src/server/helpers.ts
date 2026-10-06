@@ -1,6 +1,7 @@
 /** @format */
 
-import { resolve } from "node:path";
+import z from "zod";
+import { posix, resolve } from "node:path";
 import { databases } from "./databaseServer.js";
 import { KeyValueStore as Store } from "./keyValueStore.js";
 
@@ -10,20 +11,6 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 const promises = new Map<string, Promise<boolean>>();
 
 export const actions = {
-  INIT: async (_, PL) => {
-    const path = resolve("./", "storage", PL.path);
-    if (promises.has(path)) return promises.get(path)!;
-
-    const kv = new Store({ ...PL.options, path });
-
-    const ready = kv.init().then(
-      () => (databases.set(PL.path, kv), true),
-      (e) => (promises.delete(path), Promise.reject(e))
-    );
-    promises.set(path, ready);
-    return ready;
-  },
-
   ALL: (db) => Promise.resolve(db.all()),
 
   HAS: (db, PL) => db.has(PL.key),
@@ -36,10 +23,37 @@ export const actions = {
   SET_MANY: (db, PL) => db.setMany(PL.data),
 
   DELETE: (db, PL) => db.delete(PL.key),
-  DELETE_MANY: (db, PL) => db.deleteMany(PL.keys)
-} satisfies {
-  [K in keyof Protocols]: (db: Store, pl: Protocols[K]["req"] & { path: string }) => Promise<Protocols[K]["res"]>;
-};
+  DELETE_MANY: (db, PL) => db.deleteMany(PL.keys),
+
+  INIT: async (_, PL) => {
+    PL.path = posix.normalize(PL.path.trim().replace(/\\/g, "/")).replace(/[\s/]+$/, "");
+
+    for (const K of ["debounceTime", "maxDebounceCount", "keysPerFile"] as const)
+      if (PL.options?.[K] !== undefined && !z.number().int().min(1).max(4096).safeParse(PL.options[K]).success)
+        throw new Error(`Invalid option '${K}'.\nExpected : Integer > 0 <= 4096.\nGot : ${PL.options[K]}\n`);
+
+    if (PL.path.length > 256)
+      throw new Error(`Invalid database path.\nExpected : String <= 256 characters.\nGot : ${PL.path.length} characters.\n`);
+
+    if (posix.isAbsolute(PL.path) || /^[a-zA-Z]:/.test(PL.path))
+      throw new Error(`Invalid database path.\nExpected : A relative (non-absolute) path.\nGot : '${PL.path}'.\n`);
+
+    if (PL.path === "" || PL.path === "." || PL.path === ".." || PL.path.startsWith("../"))
+      throw new Error(`Invalid database path.\nExpected : A path that resolves within the storage directory.\nGot : '${PL.path}'.\n`);
+
+    const path = resolve("./", "storage", PL.path);
+    if (promises.has(path)) return promises.get(path)!;
+
+    const kv = new Store({ ...PL.options, path });
+
+    const ready = kv.init().then(
+      () => (databases.set(PL.path, kv), true),
+      (e) => (promises.delete(path), Promise.reject(e))
+    );
+    promises.set(path, ready);
+    return ready;
+  }
+} satisfies { [K in keyof Protocols]: (db: Store, pl: Protocols[K]["req"] & { path: string }) => Promise<Protocols[K]["res"]> };
 
 export function getBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {

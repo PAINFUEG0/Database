@@ -2,9 +2,9 @@
 
 import { WebSocket } from "ws";
 import { once } from "node:events";
+import { posix } from "node:path";
 import { Database } from "./database.js";
 import { randomUUID } from "node:crypto";
-import { posix } from "node:path";
 
 import { z } from "zod";
 import type { RequestMode, DatabaseClientRequest, DatabaseClientOptions, DatabaseServerResponse, Protocols } from "../types.js";
@@ -101,21 +101,8 @@ export class DatabaseClient {
   async createDatabase(path: string, op?: { schema?: z.ZodType; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }) {
     path = posix.normalize(path.trim().replace(/\\/g, "/")).replace(/[\s/]+$/, "");
 
-    for (const K of ["debounceTime", "maxDebounceCount", "keysPerFile"] as const)
-      if (op?.[K] !== undefined && !z.number().int().min(1).max(4096).safeParse(op[K]).success)
-        throw new Error(`Invalid option '${K}'.\nExpected : Integer > 0 <= 4096.\nGot : ${op[K]}\n`);
-
-    if (path.length > 256)
-      throw new Error(`Invalid database path.\nExpected : String <= 256 characters.\nGot : ${path.length} characters.\n`);
-
     if (this.#paths.has(path))
       throw new Error(`Duplicate database path.\nExpected : A path that does not already exist.\nGot : '${path}'.\n`);
-
-    if (posix.isAbsolute(path) || /^[a-zA-Z]:/.test(path))
-      throw new Error(`Invalid database path.\nExpected : A relative (non-absolute) path.\nGot : '${path}'.\n`);
-
-    if (path === "" || path === "." || path === ".." || path.startsWith("../"))
-      throw new Error(`Invalid database path.\nExpected : A path that resolves within the storage directory.\nGot : '${path}'.\n`);
 
     if (this.#mode == "ws" && this.#webSocket?.readyState !== WebSocket.OPEN)
       throw new Error(`Invalid operation.\nExpected : WebSocket connection to be open.\nGot : WebSocket is not connected.\n`);
