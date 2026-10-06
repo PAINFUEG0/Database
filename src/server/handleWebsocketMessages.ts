@@ -18,7 +18,7 @@ export async function handleIncomingWebsocketMessages(this: WebSocket, raw: RawD
     this.send(JSON.stringify({ requestId, data }));
   } catch (error) {
     error = error instanceof Error ? error.message : error;
-    onStderr(JSON.stringify(error));
+    onStderr(typeof error === "string" ? error : JSON.stringify(error));
     this.send(JSON.stringify({ requestId, error }));
   }
 }

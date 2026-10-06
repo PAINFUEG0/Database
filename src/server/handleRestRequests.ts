@@ -18,7 +18,7 @@ export async function handleRestRequests(req: IncomingMessage, res: ServerRespon
     res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ data }));
   } catch (error) {
     error = error instanceof Error ? error.message : error;
-    onStderr(JSON.stringify(error));
+    onStderr(typeof error === "string" ? error : JSON.stringify(error));
     res.writeHead(500, { "Content-Type": "application/json" }).end(JSON.stringify({ error }));
   }
 }
