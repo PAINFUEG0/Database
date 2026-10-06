@@ -9,9 +9,10 @@ export async function handleRestRequests(req: IncomingMessage, res: ServerRespon
   cors(res);
 
   const PL = JSON.parse(await getBody(req));
-  const db = databases.get(PL.path)!;
+  const db = databases.get(PL.path);
 
   try {
+    if (!db && PL.method !== "INIT") throw new Error(`No database with path '${PL.path}' exists !`);
     // @ts-expect-error loose typings
     const data = await actions[PL.method](db, PL);
     res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ data }));

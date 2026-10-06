@@ -9,9 +9,10 @@ export async function handleIncomingWebsocketMessages(this: WebSocket, raw: RawD
   const PL = JSON.parse(raw.toString());
 
   const { path, requestId } = PL;
-  const db = databases.get(path)!;
+  const db = databases.get(path);
 
   try {
+    if (!db && PL.method !== "INIT") throw new Error(`No database with path '${path}' exists !`);
     // @ts-expect-error loose typings
     const data = await actions[PL.method](db, PL);
     this.send(JSON.stringify({ requestId, data }));
