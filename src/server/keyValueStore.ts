@@ -3,11 +3,13 @@
 import * as fs from "node:fs";
 import { resolve } from "node:path";
 
+import type z from "zod";
 import type { KVstoreOptions } from "../types";
 
-export class KeyValueStore<T = unknown> {
+export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnknown, T = S extends z.ZodType ? z.infer<S> : S> {
   #isWriting = false;
   #debounceCount = 0;
+  #schema?: z.ZodType;
   #writeQueue = new Set<string>();
 
   #start = Date.now();
@@ -28,8 +30,9 @@ export class KeyValueStore<T = unknown> {
 
   #reservedWords = new Set([...Object.getOwnPropertyNames(Object.prototype), "prototype"]);
 
-  constructor(op: KVstoreOptions) {
+  constructor(op: KVstoreOptions & { schema?: S }) {
     this.#path = resolve(op.path);
+    this.#schema = op.schema as any;
     this.#journalPath = resolve(this.#path, "write-ahead-log.jsonl");
     this.#tempJournalPath = resolve(this.#path, "_write-ahead-log.jsonl");
     this.#keysPerFile = typeof op !== "string" && !isNaN(op.keysPerFile!) ? op.keysPerFile! : 100;
@@ -198,6 +201,7 @@ export class KeyValueStore<T = unknown> {
 
   async set(key: string, value: T): Promise<T> {
     this.#validateKeys(key);
+    this.#schema && (await this.#schema.parseAsync(value));
     return await this.#set(key, value, false);
   }
 
@@ -224,6 +228,7 @@ export class KeyValueStore<T = unknown> {
     const __ = await Promise.all(
       data.map(async ({ key, value }) => {
         _.push(JSON.stringify({ timestamp: this.#start + performance.now(), op: "set", key, value }));
+        this.#schema && (await this.#schema.parseAsync(value));
         return await this.#set(key, value, true);
       })
     );
