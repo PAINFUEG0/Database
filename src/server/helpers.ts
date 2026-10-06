@@ -1,6 +1,5 @@
 /** @format */
 
-import z from "zod";
 import { posix, resolve } from "node:path";
 import { databases } from "./databaseServer.js";
 import { KeyValueStore as Store } from "./keyValueStore.js";
@@ -27,10 +26,6 @@ export const actions = {
 
   INIT: async (_, PL) => {
     PL.path = posix.normalize(PL.path.trim().replace(/\\/g, "/")).replace(/[\s/]+$/, "");
-
-    for (const K of ["debounceTime", "maxDebounceCount", "keysPerFile"] as const)
-      if (PL.options?.[K] !== undefined && !z.number().int().min(1).max(4096).safeParse(PL.options[K]).success)
-        throw new Error(`Invalid option '${K}'.\nExpected : Integer > 0 <= 4096.\nGot : ${PL.options[K]}\n`);
 
     if (PL.path.length > 256)
       throw new Error(`Invalid database path.\nExpected : String <= 256 characters.\nGot : ${PL.path.length} characters.\n`);

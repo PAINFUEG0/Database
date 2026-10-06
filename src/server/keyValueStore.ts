@@ -1,9 +1,9 @@
 /** @format */
 
+import z from "zod";
 import * as fs from "node:fs";
 import { resolve } from "node:path";
 
-import type z from "zod";
 import type { KVstoreOptions } from "../types";
 
 export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnknown, T = S extends z.ZodType ? z.infer<S> : S> {
@@ -14,9 +14,9 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
   #start = Date.now();
 
-  #keysPerFile: number;
-  #debounceTime: number;
-  #maxDebounceCount: number;
+  #keysPerFile = 100;
+  #debounceTime = 250;
+  #maxDebounceCount = 100;
 
   #path: string;
   #journal!: number;
@@ -31,13 +31,18 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
   #reservedWords = new Set([...Object.getOwnPropertyNames(Object.prototype), "prototype"]);
 
   constructor(op: KVstoreOptions & { schema?: S }) {
+    if (!op.path || typeof op.path !== "string") throw new Error(`Invalid database path.\nExpected : String.\nGot : '${op.path}'\n`);
+
     this.#path = resolve(op.path);
     this.#schema = op.schema as any;
     this.#journalPath = resolve(this.#path, "write-ahead-log.jsonl");
     this.#tempJournalPath = resolve(this.#path, "_write-ahead-log.jsonl");
-    this.#keysPerFile = typeof op !== "string" && !isNaN(op.keysPerFile!) ? op.keysPerFile! : 100;
-    this.#debounceTime = typeof op !== "string" && !isNaN(op.debounceTime!) ? op.debounceTime! : 250;
-    this.#maxDebounceCount = typeof op !== "string" && !isNaN(op.maxDebounceCount!) ? op.maxDebounceCount! : 500;
+
+    for (const K of ["debounceTime", "maxDebounceCount", "keysPerFile"] as const)
+      if (op?.[K] !== undefined)
+        if (!z.number().int().min(1).max(4096).safeParse(op[K]).success)
+          throw new Error(`Invalid option '${K}'.\nExpected : Integer > 0 <= 4096.\nGot : ${op[K]}\n`);
+        else this[`#${K}` as keyof this] = op[K] as any;
   }
 
   async init(): Promise<this> {
