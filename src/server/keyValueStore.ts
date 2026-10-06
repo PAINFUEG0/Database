@@ -266,7 +266,7 @@ export class KeyValueStore<T = unknown> {
       if (this.#reservedWords.has(keys[i])) throw `${_}Reserved word '${keys[i]}' not allowed\n`;
 
       if (!keys[i] || typeof keys[i] !== "string" || keys[i].length === 0 || keys[i].length > 255)
-        throw `${_}Expexcted : string literal with length > 0 < 255\nGot : ${keys[i]}\n`;
+        throw `${_}Expexcted : string literal with length > 0 < 255\nGot : '${keys[i]}'\n`;
     }
   }
 }
