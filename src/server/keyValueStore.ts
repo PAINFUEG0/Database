@@ -38,11 +38,14 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     this.#journalPath = resolve(this.#path, "write-ahead-log.jsonl");
     this.#tempJournalPath = resolve(this.#path, "_write-ahead-log.jsonl");
 
-    for (const K of ["debounceTime", "maxDebounceCount", "keysPerFile"] as const)
-      if (op?.[K] !== undefined)
-        if (!z.number().int().min(1).max(4096).safeParse(op[K]).success)
-          throw new Error(`Invalid option '${K}'.\nExpected : Integer > 0 <= 4096.\nGot : ${op[K]}\n`);
-        else this[`#${K}` as keyof this] = op[K] as any;
+    const validate = (K: keyof KVstoreOptions) => {
+      if (!z.number().int().min(1).max(4096).safeParse(op[K]).success)
+        throw new Error(`Invalid option '${K}'.\nExpected : Integer > 0 <= 4096.\nGot : ${op[K]}\n`);
+    };
+
+    if (op?.keysPerFile !== undefined) (validate("keysPerFile"), (this.#keysPerFile = op.keysPerFile));
+    if (op?.debounceTime !== undefined) (validate("debounceTime"), (this.#debounceTime = op.debounceTime));
+    if (op?.maxDebounceCount !== undefined) (validate("maxDebounceCount"), (this.#maxDebounceCount = op.maxDebounceCount));
   }
 
   async init(): Promise<this> {
@@ -60,7 +63,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
     this.#journal = fs.openSync(this.#journalPath, "a");
 
-    this.replayJournal();
+    this.#replayJournal();
     await this.#write();
 
     fs.closeSync(this.#journal);
@@ -70,7 +73,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     return this;
   }
 
-  replayJournal(): void {
+  #replayJournal(): void {
     for (const line of fs.readFileSync(this.#journalPath, "utf-8").split("\n")) {
       if (!line) continue;
       const _ = JSON.parse(line);
@@ -276,7 +279,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
       if (this.#reservedWords.has(keys[i])) throw `${_}Reserved word '${keys[i]}' not allowed\n`;
 
       if (!keys[i] || typeof keys[i] !== "string" || keys[i].length === 0 || keys[i].length > 255)
-        throw `${_}Expexcted : string literal with length > 0 < 255\nGot : '${keys[i]}'\n`;
+        throw `${_}Expected : string literal with length > 0 < 255\nGot : '${keys[i]}'\n`;
     }
   }
 }
