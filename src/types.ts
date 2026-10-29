@@ -10,10 +10,10 @@ export type KVstoreOptions = {
 };
 
 export type DatabaseClientOptions = {
-  url: string;
+  host: string;
   port: number;
-  auth: string;
   secure?: boolean;
+  passphrase: string;
   mode?: RequestMode;
   throwOnError?: boolean;
   throwOnDisconnect?: boolean;
@@ -22,8 +22,8 @@ export type DatabaseClientOptions = {
 };
 
 export type DatabaseServerOptions = {
-  auth: string;
   port: number;
+  passphrase: string;
   onStderr?: (err: string) => void;
   onStdout?: (data: string) => void;
   ssl?: { key: string; cert: string };

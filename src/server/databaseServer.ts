@@ -1,5 +1,6 @@
 /** @format */
 
+import z from "zod";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import { WebSocketServer } from "ws";
@@ -29,12 +30,30 @@ export class DatabaseServer {
       .find((iface) => iface?.family === "IPv4" && !iface.internal)?.address ?? "localhost";
 
   constructor(options: DatabaseServerOptions) {
-    this.#auth = options.auth;
-    this.#port = options.port;
+    z.object({
+      port: z.number({ error: "Option 'port' must be a number" }),
+      passphrase: z.string({ error: "Option 'passphrase' must be a string" }),
+      ssl: z
+        .object(
+          {
+            key: z
+              .string({ error: "SSL option 'key' must be a string" })
+              .refine((path) => fs.existsSync(path), { error: "SSL key file does not exist" }),
+            cert: z
+              .string({ error: "SSL option 'key' must be a string" })
+              .refine((path) => fs.existsSync(path), { error: "SSL certificate file does not exist" })
+          },
+          { error: "Option 'ssl' must be an object containing key and cert" }
+        )
+        .optional(),
+      onStderr: z.custom((v) => typeof v === "function", { error: "Option 'onStderr' must be a function" }).optional(),
+      onStdout: z.custom((v) => typeof v === "function", { error: "Option 'onStdout' must be a function" }).optional()
+    }).parse(options);
 
+    this.#port = options.port;
+    this.#auth = options.passphrase;
     this.#onStdout = options.onStdout || console.log.bind(console);
     this.#onStderr = options.onStderr || console.error.bind(console);
-
     this.#key = options.ssl?.key && fs.readFileSync(options.ssl.key).toString();
     this.#cert = options.ssl?.cert && fs.readFileSync(options.ssl.cert).toString();
   }

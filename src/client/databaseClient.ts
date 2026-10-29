@@ -1,18 +1,18 @@
 /** @format */
 
+import { z } from "zod";
 import { WebSocket } from "ws";
 import { posix } from "node:path";
 import { once } from "node:events";
 import { Database } from "./database.js";
 import { randomUUID } from "node:crypto";
 
-import { z } from "zod";
 import type { RequestMode, DatabaseClientRequest, DatabaseClientOptions, DatabaseServerResponse, Protocols } from "../types.js";
 
 export class DatabaseClient {
-  #auth: string;
   #address: string;
   #mode: RequestMode;
+  #passphrase: string;
   #webSocket?: WebSocket;
   #paths = new Set<string>();
   #requests = new Map<string, DatabaseClientRequest<any>>();
@@ -23,22 +23,36 @@ export class DatabaseClient {
   #onError: (err: Error) => void;
   #onDisconnect: (address: string) => void;
 
-  constructor(op: DatabaseClientOptions) {
-    this.#auth = op.auth;
-    this.#mode = op.mode ?? "ws";
+  constructor(options: DatabaseClientOptions) {
+    z.object({
+      port: z.number({ error: "Option 'port' must be a number" }),
+      passphrase: z.string({ error: "Option 'passphrase' must be a string" }),
+      secure: z.boolean({ error: "Option 'secure' must be a boolean" }).optional(),
+      throwOnError: z.boolean({ error: "Option 'throwOnError' must be a boolean" }).optional(),
+      mode: z.enum(["ws", "rest"], { error: "Option 'mode' must be either 'ws' or 'rest'" }).optional(),
+      throwOnDisconnect: z.boolean({ error: "Option 'throwOnDisconnect' must be a boolean" }).optional(),
+      onError: z.custom((v) => typeof v === "function", { error: "Option 'onError' must be a function" }).optional(),
+      onDisconnect: z.custom((v) => typeof v === "function", { error: "Option 'onDisconnect' must be a function" }).optional(),
+      host: z
+        .string({ error: "Option 'host' must be a string" })
+        .refine((host) => !/^https?:\/\//.test(host), { error: "Option 'host' must not contain a protocol, e.g., 'http://' or 'https://'" })
+    }).parse(options);
 
-    this.#onError = op.onError ?? console.error;
-    this.#throwOnError = op.throwOnError ?? !op.onError;
-    this.#throwOnDisconnect = op.throwOnDisconnect ?? !op.onDisconnect;
-    this.#onDisconnect = op.onDisconnect ?? console.error.bind(console, "Client disconnected ! Address : ");
+    this.#mode = options.mode ?? "ws";
+    this.#passphrase = options.passphrase;
 
-    this.#address = `${this.#mode === "ws" ? "ws" : "http"}${op.secure ? "s" : ""}://${op.url}:${op.port}${this.#mode === "ws" ? "/ws" : "/rest"}`;
+    this.#onError = options.onError ?? console.error;
+    this.#throwOnError = options.throwOnError ?? !options.onError;
+    this.#throwOnDisconnect = options.throwOnDisconnect ?? !options.onDisconnect;
+    this.#onDisconnect = options.onDisconnect ?? console.error.bind(console, "Client disconnected ! Address : ");
+
+    this.#address = `${this.#mode === "ws" ? "ws" : "http"}${options.secure ? "s" : ""}://${options.host}:${options.port}/${this.#mode}`;
   }
 
   async connect() {
     if (this.#mode !== "ws") return;
 
-    this.#webSocket = new WebSocket(this.#address, { headers: { Authorization: this.#auth } });
+    this.#webSocket = new WebSocket(this.#address, { headers: { Authorization: this.#passphrase } });
 
     await once(this.#webSocket, "open");
 
@@ -103,7 +117,7 @@ export class DatabaseClient {
       method: "POST",
       signal: AbortSignal.timeout(60_000),
       body: JSON.stringify({ ...PL, path }),
-      headers: { "Content-Type": "application/json", Authorization: this.#auth }
+      headers: { "Content-Type": "application/json", Authorization: this.#passphrase }
     }).then(async (raw) => {
       const res = await (<Promise<DatabaseServerResponse<P>>>raw.json());
       if ("error" in res) throw new Error(res.error);
