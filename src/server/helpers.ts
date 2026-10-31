@@ -8,8 +8,9 @@ import type { Protocols } from "../types.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 const promises = new Map<string, Promise<boolean>>();
+type T = { [K in keyof Protocols]: (db: Store, pl: Protocols[K]["req"] & { path: string }) => Promise<Protocols[K]["res"]> };
 
-export const actions = {
+export const actions = Object.assign(<T>Object.create(null), {
   ALL: (db) => Promise.resolve(db.all()),
 
   HAS: (db, PL) => db.has(PL.key),
@@ -27,8 +28,7 @@ export const actions = {
   INIT: async (_, PL) => {
     PL.path = posix.normalize(PL.path.trim().replace(/\\/g, "/")).replace(/[\s/]+$/, "");
 
-    if (PL.path.length > 256)
-      throw new Error(`Invalid database path.\nExpected : String <= 256 characters.\nGot : ${PL.path.length} characters.\n`);
+    if (PL.path.length > 256) throw new Error(`Invalid database path.\nExpected : String <= 256 characters.\nGot : ${PL.path.length} characters.\n`);
 
     if (posix.isAbsolute(PL.path) || /^[a-zA-Z]:/.test(PL.path))
       throw new Error(`Invalid database path.\nExpected : A relative (non-absolute) path.\nGot : '${PL.path}'.\n`);
@@ -53,7 +53,7 @@ export const actions = {
     promises.set(path, ready);
     return ready;
   }
-} satisfies { [K in keyof Protocols]: (db: Store, pl: Protocols[K]["req"] & { path: string }) => Promise<Protocols[K]["res"]> };
+} satisfies T);
 
 export function getBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
