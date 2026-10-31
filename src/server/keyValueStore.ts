@@ -4,7 +4,7 @@ import z from "zod";
 import * as fs from "node:fs";
 import { resolve } from "node:path";
 
-import type { KVstoreOptions } from "../types";
+import type { El, IfArray, KVstoreOptions } from "../types";
 
 export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnknown, T = S extends z.ZodType ? z.infer<S> : S> {
   #isWriting = false;
@@ -282,4 +282,41 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
         throw `${_}Expected : string literal with length > 0 < 255\nGot : '${keys[i]}'\n`;
     }
   }
+
+  async #getArrayData(K: string) {
+    let raw: unknown[];
+    if (!(await this.has(K))) raw = [];
+    raw ||= (await this.get(K)) as unknown[];
+    if (!Array.isArray(raw)) throw "This operation is reserved for array-only values";
+    return structuredClone(raw) as unknown[];
+  }
+
+  async #mutate<R extends object>(K: string, fn: (d: unknown[]) => R) {
+    const data = await this.#getArrayData(K);
+
+    const res = fn(data);
+    await this.set(K, data as T);
+    return { ...res, length: data.length };
+  }
+
+  //prettier-ignore
+  length = (async (K) => ({ length: (await this.#getArrayData(K)).length })) as IfArray<T, (K: string) => Promise<{ length: number }>>;
+
+  //prettier-ignore
+  slice = (async (K, S, E) => ({ elements : (await this.#getArrayData(K)).slice(S, E) })) as IfArray<T, (K: string, start:number, end?:number) => Promise<{ elements:El<T>[] }>>;
+
+  //prettier-ignore
+  pop = ((K) => this.#mutate(K, (arr) => ({ element: arr.pop() }))) as IfArray<T, (K: string) => Promise<{ element?: El<T>; length: number }>>;
+
+  //prettier-ignore
+  shift = ((K) => this.#mutate(K, (arr) => ({ element: arr.shift() }))) as IfArray<T, (K: string) => Promise<{ element?: El<T>; length: number }>>;
+
+  //prettier-ignore
+  push = ((K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.push(...items), items) }))) as IfArray<T, (K: string, ...items: El<T>[]) => Promise<{ elements: El<T>[]; length: number }>>;
+
+  //prettier-ignore
+  unshift = ((K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.unshift(...items), items) }))) as IfArray<T, (K: string, ...items: El<T>[]) => Promise<{ elements: El<T>[]; length: number }>>;
+
+  //prettier-ignore
+  splice = ((K, ...args) => this.#mutate(K, (arr) => ({ removed: arr.splice(...(args as [number, number, ...unknown[]])) }))) as IfArray<T, (K: string, start: number, deleteCount?: number, ...items: El<T>[]) => Promise<{ removed: El<T>[]; length: number }>>;
 }

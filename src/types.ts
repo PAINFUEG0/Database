@@ -55,3 +55,6 @@ export type Protocols<T = unknown> = {
 };
 
 export type DatabaseServerResponse<T = unknown> = { requestId: string; data: T } | { requestId: string; error: string };
+
+export type El<T> = T extends (infer E)[] ? E : unknown extends T ? unknown : never;
+export type IfArray<T, Fn> = T extends unknown[] ? Fn : unknown extends T ? Fn : never;
