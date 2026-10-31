@@ -198,7 +198,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
   async has(key: string): Promise<boolean> {
     this.#validateKeys(key);
-    return !!this.#reverseKeymap[key];
+    return key in this.#reverseKeymap;
   }
 
   async get(key: string): Promise<T | null> {
