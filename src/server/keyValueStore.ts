@@ -209,7 +209,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
   async set(key: string, value: T): Promise<T> {
     this.#validateKeys(key);
-    this.#schema && (await this.#schema.parseAsync(value));
+    await this.#schema?.parseAsync(value);
     return await this.#set(key, value, false);
   }
 
@@ -236,7 +236,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     const __ = await Promise.all(
       data.map(async ({ key, value }) => {
         _.push(JSON.stringify({ timestamp: this.#start + performance.now(), op: "set", key, value }));
-        this.#schema && (await this.#schema.parseAsync(value));
+        await this.#schema?.parseAsync(value);
         return await this.#set(key, value, true);
       })
     );
