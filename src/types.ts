@@ -63,9 +63,31 @@ export type Protocols<T = unknown> = {
 
   SLICE: { req: { method: "SLICE"; key: string; start: number; end?: number }; res: { elements: El<T>[] } };
   SPLICE: { req: { method: "SPLICE"; key: string; start: number; deleteCount?: number; items?: El<T>[] }; res: { removed: El<T>[]; added: El<T>[]; length: number } };
+
+  TOGGLE: { req: { method: "TOGGLE"; key: string }; res: boolean };
+
+  INCREMENT: { req: { method: "INCREMENT"; key: string; count?: number }; res: number };
+  DECREMENT: { req: { method: "DECREMENT"; key: string; count?: number }; res: number };
 };
 
 export type DatabaseServerResponse<T = unknown> = { requestId: string; data: T } | { requestId: string; error: string };
 
 export type El<T> = T extends (infer E)[] ? E : unknown extends T ? unknown : never;
+export type IfNumber<T, Fn> = T extends number ? Fn : unknown extends T ? Fn : never;
+export type IfBoolean<T, Fn> = T extends boolean ? Fn : unknown extends T ? Fn : never;
 export type IfArray<T, Fn> = T extends unknown[] ? Fn : unknown extends T ? Fn : never;
+
+export type Methods<T> = {
+  POP: IfArray<T, (key: string) => Promise<Protocols["POP"]["res"]>>;
+  SHIFT: IfArray<T, (key: string) => Promise<Protocols["SHIFT"]["res"]>>;
+  LENGTH: IfArray<T, (key: string) => Promise<Protocols["LENGTH"]["res"]>>;
+  PUSH: IfArray<T, (key: string, ...items: El<T>[]) => Promise<Protocols["PUSH"]["res"]>>;
+  UNSHIFT: IfArray<T, (key: string, ...items: El<T>[]) => Promise<Protocols["UNSHIFT"]["res"]>>;
+  SLICE: IfArray<T, (key: string, start: number, end?: number) => Promise<Protocols["SLICE"]["res"]>>;
+  SPLICE: IfArray<T, (key: string, start: number, deleteCount?: number, ...items: El<T>[]) => Promise<Protocols["SPLICE"]["res"]>>;
+
+  TOGGLE: IfBoolean<T, (key: string) => Promise<Protocols["TOGGLE"]["res"]>>;
+
+  INCREMENT: IfNumber<T, (key: string, count?: number) => Promise<Protocols["INCREMENT"]["res"]>>;
+  DECREMENT: IfNumber<T, (key: string, count?: number) => Promise<Protocols["DECREMENT"]["res"]>>;
+};

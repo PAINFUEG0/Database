@@ -4,7 +4,7 @@ import z from "zod";
 import * as fs from "node:fs";
 import { resolve } from "node:path";
 
-import type { El, IfArray, KVstoreOptions } from "../types";
+import type { Methods, KVstoreOptions } from "../types";
 
 export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnknown, T = S extends z.ZodType ? z.infer<S> : S> {
   #isWriting = false;
@@ -282,6 +282,30 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     }
   }
 
+  /////////////////////////////////////////////////// BOOLEAN METHODS ///////////////////////////////////////////////////
+
+  toggle = (async (key) => {
+    const data = (await this.has(key)) ? await this.get(key) : false;
+    if (typeof data !== "boolean") throw new Error("Can't toggle non-boolean values");
+    return (await this.set(key, !data as T)) as boolean;
+  }) as Methods<T>["TOGGLE"];
+
+  /////////////////////////////////////////////////// NUMBER METHODS ////////////////////////////////////////////////////
+
+  increment = (async (key, count = 1) => {
+    let data = (await this.has(key)) ? await this.get(key) : 0;
+    if (typeof data !== "number") throw new Error("Can't increment non-numeric values");
+    return <Promise<number>>this.set(key, (data + count) as T);
+  }) as Methods<T>["INCREMENT"];
+
+  decrement = (async (key, count = 1) => {
+    let data = (await this.has(key)) ? await this.get(key) : 0;
+    if (typeof data !== "number") throw new Error("Can't decrement non-numeric values");
+    return <Promise<number>>this.set(key, (data - count) as T);
+  }) as Methods<T>["DECREMENT"];
+
+  //////////////////////////////////////////////////// ARRAY METHODS ////////////////////////////////////////////////////
+
   async #getArrayData(K: string) {
     let raw: unknown[];
     if (!(await this.has(K))) raw = [];
@@ -298,24 +322,14 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     return { ...res, length: data.length };
   }
 
-  //prettier-ignore
-  length = (async (K) => ({ length: (await this.#getArrayData(K)).length })) as IfArray<T, (K: string) => Promise<{ length: number }>>;
+  pop = ((K) => this.#mutate(K, (arr) => ({ element: arr.pop() }))) as Methods<T>["POP"];
+  length = (async (K) => this.#getArrayData(K).then((_) => _.length)) as Methods<T>["LENGTH"];
+  shift = ((K) => this.#mutate(K, (arr) => ({ element: arr.shift() }))) as Methods<T>["SHIFT"];
+  slice = (async (K, S, E) => ({ elements: (await this.#getArrayData(K)).slice(S, E) })) as Methods<T>["SLICE"];
+  push = ((K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.push(...items), items) }))) as Methods<T>["PUSH"];
+  unshift = ((K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.unshift(...items), items) }))) as Methods<T>["UNSHIFT"];
+  splice = ((K, ...args) =>
+    this.#mutate(K, (arr) => ({ added: args.slice(2), removed: arr.splice(...(args as [number, number, ...unknown[]])) }))) as Methods<T>["SPLICE"];
 
-  //prettier-ignore
-  slice = (async (K, S, E) => ({ elements : (await this.#getArrayData(K)).slice(S, E) })) as IfArray<T, (K: string, start:number, end?:number) => Promise<{ elements:El<T>[] }>>;
-
-  //prettier-ignore
-  pop = ((K) => this.#mutate(K, (arr) => ({ element: arr.pop() }))) as IfArray<T, (K: string) => Promise<{ element?: El<T>; length: number }>>;
-
-  //prettier-ignore
-  shift = ((K) => this.#mutate(K, (arr) => ({ element: arr.shift() }))) as IfArray<T, (K: string) => Promise<{ element?: El<T>; length: number }>>;
-
-  //prettier-ignore
-  push = ((K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.push(...items), items) }))) as IfArray<T, (K: string, ...items: El<T>[]) => Promise<{ elements: El<T>[]; length: number }>>;
-
-  //prettier-ignore
-  unshift = ((K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.unshift(...items), items) }))) as IfArray<T, (K: string, ...items: El<T>[]) => Promise<{ elements: El<T>[]; length: number }>>;
-
-  //prettier-ignore
-  splice = ((K, ...args) => this.#mutate(K, (arr) => ({ added:args.slice(2), removed: arr.splice(...(args as [number, number, ...unknown[]])) }))) as IfArray<T, (K: string, start: number, deleteCount?: number, ...items: El<T>[]) => Promise<{ added:El<T>[]; removed: El<T>[]; length: number }>>;
+  /////////////////////////////////////////////////// PRIVATE HELPERS ///////////////////////////////////////////////////
 }

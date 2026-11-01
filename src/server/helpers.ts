@@ -25,7 +25,12 @@ export const actions = Object.assign(<T>Object.create(null), {
   DELETE: (db, PL) => db.delete(PL.key),
   DELETE_MANY: (db, PL) => db.deleteMany(PL.keys),
 
-  LENGTH: async (db, PL) => (await db.length(PL.key)).length,
+  LENGTH: (db, PL) => db.length(PL.key),
+
+  TOGGLE: (db, PL) => db.toggle(PL.key),
+
+  INCREMENT: (db, PL) => db.increment(PL.key, PL.count),
+  DECREMENT: (db, PL) => db.decrement(PL.key, PL.count),
 
   POP: (db, PL) => db.pop(PL.key),
   SHIFT: (db, PL) => db.shift(PL.key),
