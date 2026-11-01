@@ -13,8 +13,7 @@ import type { KeyValueStore } from "./keyValueStore.js";
 import type { DatabaseServerOptions } from "../types.js";
 
 export const databases = new Map<string, KeyValueStore<any>>();
-const respond = (res: ServerResponse, code: number, data: any) =>
-  res.writeHead(code, { "Content-Type": "application/json" }).end(JSON.stringify(data));
+const respond = (res: ServerResponse, code: number, data: any) => res.writeHead(code, { "Content-Type": "application/json" }).end(JSON.stringify(data));
 
 export class DatabaseServer {
   #key?: string;
@@ -36,12 +35,8 @@ export class DatabaseServer {
       ssl: z
         .object(
           {
-            key: z
-              .string({ error: "SSL option 'key' must be a string" })
-              .refine((path) => fs.existsSync(path), { error: "SSL key file does not exist" }),
-            cert: z
-              .string({ error: "SSL option 'key' must be a string" })
-              .refine((path) => fs.existsSync(path), { error: "SSL certificate file does not exist" })
+            key: z.string({ error: "SSL option 'key' must be a string" }).refine((path) => fs.existsSync(path), { error: "SSL key file does not exist" }),
+            cert: z.string({ error: "SSL option 'key' must be a string" }).refine((path) => fs.existsSync(path), { error: "SSL certificate file does not exist" })
           },
           { error: "Option 'ssl' must be an object containing key and cert" }
         )
@@ -69,9 +64,7 @@ export class DatabaseServer {
   async boot() {
     const ssl = this.#key && this.#cert;
 
-    const server = ssl
-      ? createHttpsServer({ key: this.#key, cert: this.#cert }, this.#requestHandler.bind(this))
-      : createHttpServer(this.#requestHandler.bind(this));
+    const server = ssl ? createHttpsServer({ key: this.#key, cert: this.#cert }, this.#requestHandler.bind(this)) : createHttpServer(this.#requestHandler.bind(this));
 
     const wss = new WebSocketServer({
       server,
@@ -88,9 +81,7 @@ export class DatabaseServer {
         this.#onStdout(`WebSocket - ws${ssl ? "s" : ""}://${this.#ip}:${port}/ws`);
 
         wss.on("connection", (ws, req) => {
-          ws.on("message", (raw) =>
-            handleIncomingWebsocketMessages.call(ws, raw, this.#onStderr).catch((error) => this.#onStderr(JSON.stringify(error)))
-          );
+          ws.on("message", (raw) => handleIncomingWebsocketMessages.call(ws, raw, this.#onStderr).catch((error) => this.#onStderr(JSON.stringify(error))));
           ws.on("error", (err) => this.#onStderr(JSON.stringify(err)));
           this.#onStdout(`Established a new connection from ${req.socket.remoteAddress}`);
           ws.on("close", () => this.#onStdout(`Connection closed from ${req.socket.remoteAddress}`));

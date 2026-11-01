@@ -82,10 +82,7 @@ export class DatabaseClient {
 
   createDatabase<T = unknown>(path: string): Promise<Database<T>>;
 
-  createDatabase<T = unknown>(
-    path: string,
-    op: { debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }
-  ): Promise<Database<T>>;
+  createDatabase<T = unknown>(path: string, op: { debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }): Promise<Database<T>>;
 
   createDatabase<T extends z.ZodType>(
     path: string,
@@ -95,8 +92,7 @@ export class DatabaseClient {
   async createDatabase(path: string, op?: { schema?: z.ZodType; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }) {
     path = posix.normalize(path.trim().replace(/\\/g, "/")).replace(/[\s/]+$/, "");
 
-    if (this.#paths.has(path))
-      throw new Error(`Duplicate database path.\nExpected : A path that does not already exist.\nGot : '${path}'.\n`);
+    if (this.#paths.has(path)) throw new Error(`Duplicate database path.\nExpected : A path that does not already exist.\nGot : '${path}'.\n`);
 
     if (this.#mode == "ws" && this.#webSocket?.readyState !== WebSocket.OPEN)
       throw new Error(`Invalid operation.\nExpected : WebSocket connection to be open.\nGot : WebSocket is not connected.\n`);

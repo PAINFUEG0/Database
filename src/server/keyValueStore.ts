@@ -39,8 +39,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     this.#tempJournalPath = resolve(this.#path, "_write-ahead-log.jsonl");
 
     const validate = (K: keyof KVstoreOptions) => {
-      if (!z.number().int().min(1).max(4096).safeParse(op[K]).success)
-        throw new Error(`Invalid option '${K}'.\nExpected : Integer > 0 <= 4096.\nGot : ${op[K]}\n`);
+      if (!z.number().int().min(1).max(4096).safeParse(op[K]).success) throw new Error(`Invalid option '${K}'.\nExpected : Integer > 0 <= 4096.\nGot : ${op[K]}\n`);
     };
 
     if (op?.keysPerFile !== undefined) (validate("keysPerFile"), (this.#keysPerFile = op.keysPerFile));

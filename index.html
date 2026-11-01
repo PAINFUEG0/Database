@@ -8,18 +8,12 @@
 
     <title>basewire — key-value storage over WebSocket</title>
 
-    <meta
-      name="description"
-      content="basewire is a lightweight key-value database with a WebSocket client, server, and optional Zod validation."
-    />
+    <meta name="description" content="basewire is a lightweight key-value database with a WebSocket client, server, and optional Zod validation." />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-    <link
-      href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -77,9 +71,7 @@
       }
 
       .grid-bg {
-        background-image:
-          linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+        background-image: linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
         background-size: 64px 64px;
       }
 
@@ -209,12 +201,7 @@
             npm i basewire
           </button>
 
-          <a
-            href="#quickstart"
-            class="rounded-md bg-white px-3.5 py-1.5 text-sm font-medium text-black transition-colors hover:bg-zinc-200"
-          >
-            Get started
-          </a>
+          <a href="#quickstart" class="rounded-md bg-white px-3.5 py-1.5 text-sm font-medium text-black transition-colors hover:bg-zinc-200"> Get started </a>
         </div>
       </div>
     </header>
@@ -230,9 +217,7 @@
         <div class="hero-glow absolute top-[-240px] left-1/2 h-[600px] w-[900px] -translate-x-1/2"></div>
 
         <div class="relative mx-auto max-w-6xl px-4 pt-24 pb-24 text-center sm:px-6 sm:pt-32">
-          <div
-            class="border-border mx-auto mb-7 flex w-fit items-center gap-2 rounded-full border bg-zinc-950 px-3 py-1 font-mono text-[11px] text-zinc-400"
-          >
+          <div class="border-border mx-auto mb-7 flex w-fit items-center gap-2 rounded-full border bg-zinc-950 px-3 py-1 font-mono text-[11px] text-zinc-400">
             <span class="h-1.5 w-1.5 rounded-full bg-white"></span>
             Node.js + TypeScript
           </div>
@@ -245,8 +230,7 @@
           </h1>
 
           <p class="mx-auto mt-7 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg">
-            basewire is a lightweight key-value database for Node.js. Run a server, connect with a typed client, and read or write values
-            over WebSocket.
+            basewire is a lightweight key-value database for Node.js. Run a server, connect with a typed client, and read or write values over WebSocket.
           </p>
 
           <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -267,9 +251,7 @@
           </div>
 
           <!-- Terminal -->
-          <div
-            class="border-border mx-auto mt-16 max-w-3xl overflow-hidden rounded-xl border bg-[#080808] text-left shadow-2xl shadow-black"
-          >
+          <div class="border-border mx-auto mt-16 max-w-3xl overflow-hidden rounded-xl border bg-[#080808] text-left shadow-2xl shadow-black">
             <div class="border-border flex h-10 items-center border-b px-4">
               <div class="flex gap-1.5">
                 <span class="h-2.5 w-2.5 rounded-full bg-zinc-800"></span>
@@ -348,9 +330,7 @@
 
                 <h3 class="font-medium">Typed values</h3>
 
-                <p class="mt-2 text-sm leading-6 text-zinc-500">
-                  TypeScript generics keep your database values typed from creation through reads and writes.
-                </p>
+                <p class="mt-2 text-sm leading-6 text-zinc-500">TypeScript generics keep your database values typed from creation through reads and writes.</p>
               </article>
 
               <article class="px-6 py-6">
@@ -360,9 +340,7 @@
 
                 <h3 class="font-medium">Optional validation</h3>
 
-                <p class="mt-2 text-sm leading-6 text-zinc-500">
-                  Attach a Zod schema when you need runtime validation. Nothing extra when you don't.
-                </p>
+                <p class="mt-2 text-sm leading-6 text-zinc-500">Attach a Zod schema when you need runtime validation. Nothing extra when you don't.</p>
               </article>
             </div>
           </div>
@@ -380,9 +358,7 @@
 
             <h2 class="mt-4 text-3xl font-semibold tracking-tight">From zero to storage.</h2>
 
-            <p class="mt-3 max-w-xl text-sm leading-6 text-zinc-500">
-              Install the package, start the server, and connect a client. That's the whole setup.
-            </p>
+            <p class="mt-3 max-w-xl text-sm leading-6 text-zinc-500">Install the package, start the server, and connect a client. That's the whole setup.</p>
           </div>
 
           <div class="space-y-16">
@@ -400,14 +376,10 @@
                 <div class="border-border flex items-center justify-between border-b px-4 py-2.5">
                   <span class="font-mono text-[11px] text-zinc-600"> terminal </span>
 
-                  <button data-copy="npm install basewire zod" class="copy-btn font-mono text-[11px] text-zinc-500 hover:text-white">
-                    copy
-                  </button>
+                  <button data-copy="npm install basewire zod" class="copy-btn font-mono text-[11px] text-zinc-500 hover:text-white">copy</button>
                 </div>
 
-                <pre
-                  class="overflow-x-auto bg-[#080808] p-5 font-mono text-sm"
-                ><span class="text-zinc-400">$</span> npm install basewire zod</pre>
+                <pre class="overflow-x-auto bg-[#080808] p-5 font-mono text-sm"><span class="text-zinc-400">$</span> npm install basewire zod</pre>
               </div>
             </div>
 
@@ -530,8 +502,7 @@ const ada = await users.get("u_1");'
               <h2 class="mt-4 text-3xl font-semibold tracking-tight">Give your database a shape.</h2>
 
               <p class="mt-5 max-w-lg text-sm leading-7 text-zinc-500">
-                Pass a Zod schema when creating a database and basewire uses it to validate writes at runtime while TypeScript infers the
-                corresponding value type.
+                Pass a Zod schema when creating a database and basewire uses it to validate writes at runtime while TypeScript infers the corresponding value type.
               </p>
 
               <div class="mt-8 space-y-3">
@@ -615,9 +586,7 @@ await users.set("u_1", {
 
             <h2 class="mt-4 text-3xl font-semibold tracking-tight">API reference</h2>
 
-            <p class="mt-3 max-w-xl text-sm leading-6 text-zinc-500">
-              Everything you need to work with clients, databases, servers, and validation.
-            </p>
+            <p class="mt-3 max-w-xl text-sm leading-6 text-zinc-500">Everything you need to work with clients, databases, servers, and validation.</p>
           </div>
 
           <div class="grid gap-10 lg:grid-cols-[190px_1fr]">
@@ -669,9 +638,7 @@ await users.set("u_1", {
                 </div>
 
                 <div>
-                  <div class="border-border rounded-lg border bg-[#080808] p-4 font-mono text-xs text-zinc-300">
-                    new DatabaseClient(options)
-                  </div>
+                  <div class="border-border rounded-lg border bg-[#080808] p-4 font-mono text-xs text-zinc-300">new DatabaseClient(options)</div>
                 </div>
 
                 <div>
@@ -814,9 +781,7 @@ await users.set("u_1", {
                 <div class="border-border overflow-hidden rounded-lg border">
                   <div class="border-border border-b px-4 py-2.5 font-mono text-[11px] text-zinc-600">batching.ts</div>
 
-                  <pre
-                    class="overflow-x-auto bg-[#080808] p-5 font-mono text-xs leading-6"
-                  ><span class="code-keyword">await</span> users.setMany([
+                  <pre class="overflow-x-auto bg-[#080808] p-5 font-mono text-xs leading-6"><span class="code-keyword">await</span> users.setMany([
   {
     key: <span class="code-string">"u_2"</span>,
     value: { name: <span class="code-string">"Grace"</span> }
@@ -843,9 +808,7 @@ await users.set("u_1", {
                   <p class="mt-3 text-sm leading-6 text-zinc-500">The process responsible for storage and WebSocket connections.</p>
                 </div>
 
-                <div class="border-border rounded-lg border bg-[#080808] p-4 font-mono text-xs text-zinc-300">
-                  new DatabaseServer(options)
-                </div>
+                <div class="border-border rounded-lg border bg-[#080808] p-4 font-mono text-xs text-zinc-300">new DatabaseServer(options)</div>
 
                 <div class="border-border overflow-hidden rounded-lg border">
                   <table class="w-full text-left text-sm">
