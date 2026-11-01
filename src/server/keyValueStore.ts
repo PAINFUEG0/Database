@@ -208,8 +208,8 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
   async set(key: string, value: T): Promise<T> {
     this.#validateKeys(key);
-    await this.#schema?.parseAsync(value);
-    return await this.#set(key, value, false);
+    const parsed = await this.#schema?.parseAsync(value);
+    return await this.#set(key, this.#schema ? (parsed as T) : value, false);
   }
 
   async delete(key: string): Promise<boolean> {
@@ -235,8 +235,8 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     const __ = await Promise.all(
       data.map(async ({ key, value }) => {
         _.push(JSON.stringify({ timestamp: this.#start + performance.now(), op: "set", key, value }));
-        await this.#schema?.parseAsync(value);
-        return await this.#set(key, value, true);
+        const parsed = await this.#schema?.parseAsync(value);
+        return await this.#set(key, this.#schema ? (parsed as T) : value, true);
       })
     );
 
