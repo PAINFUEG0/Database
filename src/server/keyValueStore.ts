@@ -281,23 +281,35 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     }
   }
 
-  toggle = (async (key) => {
-    const data = (await this.has(key)) ? await this.get(key) : false;
-    if (typeof data !== "boolean") throw new Error("Can't toggle non-boolean values");
-    return (await this.set(key, !data as T)) as boolean;
-  }) as Methods<T>["TOGGLE"];
+  #lock: Promise<unknown> = Promise.resolve();
+  #executeWithMutex<R>(fn: () => Promise<R>): Promise<R> {
+    const run = this.#lock.then(fn);
+    this.#lock = run.then(() => undefined).catch(() => undefined);
+    return run;
+  }
 
-  increment = (async (key, count = 1) => {
-    let data = (await this.has(key)) ? await this.get(key) : 0;
-    if (typeof data !== "number") throw new Error("Can't increment non-numeric values");
-    return <Promise<number>>this.set(key, (data + count) as T);
-  }) as Methods<T>["INCREMENT"];
+  toggle = (async (key) =>
+    this.#executeWithMutex(async () => {
+      const data = (await this.has(key)) ? await this.get(key) : false;
+      if (typeof data !== "boolean") throw new Error("Can't toggle non-boolean values");
+      return (await this.set(key, !data as T)) as boolean;
+    })) as Methods<T>["TOGGLE"];
 
-  decrement = (async (key, count = 1) => {
-    let data = (await this.has(key)) ? await this.get(key) : 0;
-    if (typeof data !== "number") throw new Error("Can't decrement non-numeric values");
-    return <Promise<number>>this.set(key, (data - count) as T);
-  }) as Methods<T>["DECREMENT"];
+  increment = (async (key, count = 1) =>
+    this.#executeWithMutex(async () => {
+      let data = (await this.has(key)) ? await this.get(key) : 0;
+      if (typeof data !== "number") throw new Error("Can't increment non-numeric values");
+      if (typeof count !== "number") throw new Error("Can't increment with a non-numeric count");
+      return <Promise<number>>this.set(key, (data + count) as T);
+    })) as Methods<T>["INCREMENT"];
+
+  decrement = (async (key, count = 1) =>
+    this.#executeWithMutex(async () => {
+      let data = (await this.has(key)) ? await this.get(key) : 0;
+      if (typeof data !== "number") throw new Error("Can't decrement non-numeric values");
+      if (typeof count !== "number") throw new Error("Can't decrement with a non-numeric count");
+      return <Promise<number>>this.set(key, (data - count) as T);
+    })) as Methods<T>["DECREMENT"];
 
   async #getArrayData(K: string) {
     let raw: unknown[];
@@ -308,11 +320,13 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
   }
 
   async #mutate<R extends object>(K: string, fn: (d: unknown[]) => R) {
-    const data = await this.#getArrayData(K);
+    return this.#executeWithMutex(async () => {
+      const data = await this.#getArrayData(K);
 
-    const res = fn(data);
-    await this.set(K, data as T);
-    return { ...res, length: data.length };
+      const res = fn(data);
+      await this.set(K, data as T);
+      return { ...res, length: data.length };
+    });
   }
 
   pop = ((K) => this.#mutate(K, (arr) => ({ element: arr.pop() }))) as Methods<T>["POP"];
