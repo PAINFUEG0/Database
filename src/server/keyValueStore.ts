@@ -76,8 +76,8 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     for (const line of fs.readFileSync(this.#journalPath, "utf-8").split("\n")) {
       if (!line) continue;
       const _ = JSON.parse(line);
-      if (_.op === "set") this.#set(_.key, _.value, true);
-      else if (_.op === "delete") this.#delete(_.key, true);
+      if (_.op === "set") this.#set(_.key, _.value);
+      else if (_.op === "delete") this.#delete(_.key);
     }
   }
 
@@ -158,9 +158,10 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     this.#timer ||= setTimeout(() => (this.#isWriting ? this.#debouncedWrite() : this.#write()), this.#debounceTime);
   }
 
-  async #set(key: string, value: T, internal: boolean): Promise<T> {
-    const timestamp = this.#start + performance.now();
+  #set(key: string, value: T): T {
     const res = this.#reverseKeymap[key];
+
+    value = structuredClone(value);
 
     if (res) {
       if (this.#cache.get(res)![key] === value) return value;
@@ -174,13 +175,10 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
       this.#writeQueue.add(file);
     }
 
-    !internal && fs.writeSync(this.#journal, JSON.stringify({ timestamp, op: "set", key, value }) + "\n");
-    !internal && (await this.#debouncedWrite());
-    return value;
+    return structuredClone(value);
   }
 
-  async #delete(key: string, internal: boolean): Promise<boolean> {
-    const timestamp = this.#start + performance.now();
+  #delete(key: string): boolean {
     const res = this.#reverseKeymap[key];
 
     if (!res) return false;
@@ -189,9 +187,6 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     delete this.#reverseKeymap[key];
     this.#keymap[res]!.delete(key);
     this.#writeQueue.add(res);
-
-    !internal && fs.writeSync(this.#journal, JSON.stringify({ timestamp, op: "delete", key }) + "\n");
-    !internal && (await this.#debouncedWrite());
     return true;
   }
 
@@ -203,18 +198,24 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
   async get(key: string): Promise<T | null> {
     this.#validateKeys(key);
     const res = this.#reverseKeymap[key];
-    return res ? (this.#cache.get(res)![key] as T) : null;
+    return structuredClone(res ? (this.#cache.get(res)![key] as T) : null);
   }
 
   async set(key: string, value: T): Promise<T> {
     this.#validateKeys(key);
-    const parsed = await this.#schema?.parseAsync(value);
-    return await this.#set(key, this.#schema ? (parsed as T) : value, false);
+    value = this.#schema ? (this.#schema?.parse(value) as T) : value;
+    fs.writeSync(this.#journal, JSON.stringify({ timestamp: this.#start + performance.now(), op: "set", key, value }) + "\n");
+    const res = this.#set(key, value);
+    await this.#debouncedWrite();
+    return res;
   }
 
   async delete(key: string): Promise<boolean> {
     this.#validateKeys(key);
-    return await this.#delete(key, false);
+    fs.writeSync(this.#journal, JSON.stringify({ timestamp: this.#start + performance.now(), op: "delete", key }) + "\n");
+    const res = this.#delete(key);
+    await this.#debouncedWrite();
+    return structuredClone(res);
   }
 
   async hasMany(keys: string[]): Promise<boolean[]> {
@@ -229,44 +230,27 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
   async setMany(data: { key: string; value: T }[]): Promise<T[]> {
     this.#validateKeys(data.map(({ key }) => key));
-
-    const _: string[] = [];
-
-    const __ = await Promise.all(
-      data.map(async ({ key, value }) => {
-        _.push(JSON.stringify({ timestamp: this.#start + performance.now(), op: "set", key, value }));
-        const parsed = await this.#schema?.parseAsync(value);
-        return await this.#set(key, this.#schema ? (parsed as T) : value, true);
-      })
-    );
-
-    fs.writeSync(this.#journal, _.join("\n") + "\n");
+    data = data.map(({ key, value }) => ({ key, value: this.#schema ? (this.#schema?.parse(value) as T) : value }));
+    const lines = data.map(({ key, value }) => JSON.stringify({ timestamp: this.#start + performance.now(), op: "set", key, value }));
+    fs.writeSync(this.#journal, lines.join("\n") + "\n");
+    const res = data.map((e) => this.#set(e.key, e.value));
     await this.#debouncedWrite();
-    return __;
+    return res;
   }
 
   async deleteMany(keys: string[]): Promise<boolean[]> {
     this.#validateKeys(keys);
-
-    const _: string[] = [];
-
-    const __ = await Promise.all(
-      keys.map(async (K) => {
-        const res = await this.#delete(K, true);
-        _.push(JSON.stringify({ timestamp: this.#start + performance.now(), op: "delete", key: K }));
-        return res;
-      })
-    );
-
-    fs.writeSync(this.#journal, _.join("\n") + "\n");
+    const lines = keys.map((K) => JSON.stringify({ timestamp: this.#start + performance.now(), op: "delete", key: K }));
+    fs.writeSync(this.#journal, lines.join("\n") + "\n");
+    const res = keys.map((K) => this.#delete(K));
     await this.#debouncedWrite();
-    return __;
+    return res;
   }
 
   all(): { [K: string]: T } {
     const result = {};
     for (const data of this.#cache.values()) Object.assign(result, data);
-    return result;
+    return structuredClone(result);
   }
 
   #validateKeys(key: unknown | unknown[]) {
@@ -281,59 +265,59 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     }
   }
 
-  #lock: Promise<unknown> = Promise.resolve();
-  #executeWithMutex<R>(fn: () => Promise<R>): Promise<R> {
-    const run = this.#lock.then(fn);
-    this.#lock = run.then(() => undefined).catch(() => undefined);
-    return run;
+  toggle = (async (key) => {
+    this.#validateKeys(key);
+    const file = this.#reverseKeymap[key];
+    const data = file ? this.#cache.get(file)![key] : false;
+
+    if (typeof data !== "boolean") throw new Error("Can't toggle non-boolean values");
+
+    return (await this.set(key, !data as T)) as boolean;
+  }) as Methods<T>["TOGGLE"];
+
+  increment = (async (key, count = 1) => {
+    this.#validateKeys(key);
+    const file = this.#reverseKeymap[key];
+    const data = file ? this.#cache.get(file)![key] : 0;
+
+    if (typeof data !== "number") throw new Error("Can't increment non-numeric values");
+    if (typeof count !== "number") throw new Error("Can't increment with a non-numeric count");
+
+    return <Promise<number>>this.set(key, (data + count) as T);
+  }) as Methods<T>["INCREMENT"];
+
+  decrement = (async (key, count = 1) => {
+    this.#validateKeys(key);
+    const file = this.#reverseKeymap[key];
+    const data = file ? this.#cache.get(file)![key] : 0;
+
+    if (typeof data !== "number") throw new Error("Can't increment non-numeric values");
+    if (typeof count !== "number") throw new Error("Can't increment with a non-numeric count");
+
+    return <Promise<number>>this.set(key, (data - count) as T);
+  }) as Methods<T>["DECREMENT"];
+
+  #getArrayData(key: string) {
+    this.#validateKeys(key);
+    const file = this.#reverseKeymap[key];
+    const data = file ? this.#cache.get(file)![key] : [];
+    if (!Array.isArray(data)) throw "This operation is reserved for array-only values";
+    return structuredClone(data) as unknown[];
   }
 
-  toggle = (async (key) =>
-    this.#executeWithMutex(async () => {
-      const data = (await this.has(key)) ? await this.get(key) : false;
-      if (typeof data !== "boolean") throw new Error("Can't toggle non-boolean values");
-      return (await this.set(key, !data as T)) as boolean;
-    })) as Methods<T>["TOGGLE"];
+  async #mutate<R extends object>(key: string, fn: (d: unknown[]) => R) {
+    const data = this.#getArrayData(key);
 
-  increment = (async (key, count = 1) =>
-    this.#executeWithMutex(async () => {
-      let data = (await this.has(key)) ? await this.get(key) : 0;
-      if (typeof data !== "number") throw new Error("Can't increment non-numeric values");
-      if (typeof count !== "number") throw new Error("Can't increment with a non-numeric count");
-      return <Promise<number>>this.set(key, (data + count) as T);
-    })) as Methods<T>["INCREMENT"];
-
-  decrement = (async (key, count = 1) =>
-    this.#executeWithMutex(async () => {
-      let data = (await this.has(key)) ? await this.get(key) : 0;
-      if (typeof data !== "number") throw new Error("Can't decrement non-numeric values");
-      if (typeof count !== "number") throw new Error("Can't decrement with a non-numeric count");
-      return <Promise<number>>this.set(key, (data - count) as T);
-    })) as Methods<T>["DECREMENT"];
-
-  async #getArrayData(K: string) {
-    let raw: unknown[];
-    if (!(await this.has(K))) raw = [];
-    raw ||= (await this.get(K)) as unknown[];
-    if (!Array.isArray(raw)) throw "This operation is reserved for array-only values";
-    return structuredClone(raw) as unknown[];
+    const res = fn(data);
+    await this.set(key, data as T);
+    return { ...res, length: data.length };
   }
 
-  async #mutate<R extends object>(K: string, fn: (d: unknown[]) => R) {
-    return this.#executeWithMutex(async () => {
-      const data = await this.#getArrayData(K);
-
-      const res = fn(data);
-      await this.set(K, data as T);
-      return { ...res, length: data.length };
-    });
-  }
-
-  pop = ((K) => this.#mutate(K, (arr) => ({ element: arr.pop() }))) as Methods<T>["POP"];
-  length = (async (K) => this.#getArrayData(K).then((_) => _.length)) as Methods<T>["LENGTH"];
-  shift = ((K) => this.#mutate(K, (arr) => ({ element: arr.shift() }))) as Methods<T>["SHIFT"];
-  slice = (async (K, S, E) => ({ elements: (await this.#getArrayData(K)).slice(S, E) })) as Methods<T>["SLICE"];
-  push = ((K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.push(...items), items) }))) as Methods<T>["PUSH"];
-  unshift = ((K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.unshift(...items), items) }))) as Methods<T>["UNSHIFT"];
-  splice = ((K, ...args) => this.#mutate(K, (arr) => ({ added: args.slice(2), removed: arr.splice(...(args as [number, number, ...unknown[]])) }))) as Methods<T>["SPLICE"];
+  length = (async (K) => this.#getArrayData(K).length) as Methods<T>["LENGTH"];
+  pop = (async (K) => this.#mutate(K, (arr) => ({ element: arr.pop() }))) as Methods<T>["POP"];
+  shift = (async (K) => this.#mutate(K, (arr) => ({ element: arr.shift() }))) as Methods<T>["SHIFT"];
+  slice = (async (K, S, E) => ({ elements: this.#getArrayData(K).slice(S, E) })) as Methods<T>["SLICE"];
+  push = (async (K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.push(...items), items) }))) as Methods<T>["PUSH"];
+  unshift = (async (K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.unshift(...items), items) }))) as Methods<T>["UNSHIFT"];
+  splice = (async (K, ...args) => this.#mutate(K, (arr) => ({ added: args.slice(2), removed: arr.splice(...(args as [number, number, ...unknown[]])) }))) as Methods<T>["SPLICE"];
 }
