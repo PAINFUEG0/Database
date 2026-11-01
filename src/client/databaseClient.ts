@@ -33,9 +33,7 @@ export class DatabaseClient {
       throwOnDisconnect: z.boolean({ error: "Option 'throwOnDisconnect' must be a boolean" }).optional(),
       onError: z.custom((v) => typeof v === "function", { error: "Option 'onError' must be a function" }).optional(),
       onDisconnect: z.custom((v) => typeof v === "function", { error: "Option 'onDisconnect' must be a function" }).optional(),
-      host: z
-        .string({ error: "Option 'host' must be a string" })
-        .refine((host) => !/^https?:\/\//.test(host), { error: "Option 'host' must not contain a protocol, e.g., 'http://' or 'https://'" })
+      host: z.string({ error: "Option 'host' must be a string" }).refine((host) => !/^https?:\/\//.test(host), { error: "Option 'host' must not contain a protocol, e.g., 'http://' or 'https://'" })
     }).parse(options);
 
     this.#mode = options.mode ?? "ws";
@@ -84,28 +82,22 @@ export class DatabaseClient {
 
   createDatabase<T = unknown>(path: string, op: { debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }): Promise<Database<T>>;
 
-  createDatabase<T extends z.ZodType>(
-    path: string,
-    op: { schema: T; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }
-  ): Promise<Database<z.infer<T>>>;
+  createDatabase<T extends z.ZodType>(path: string, op: { schema: T; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }): Promise<Database<z.infer<T>>>;
 
   async createDatabase(path: string, op?: { schema?: z.ZodType; debounceTime?: number; maxDebounceCount?: number; keysPerFile?: number }) {
     path = posix.normalize(path.trim().replace(/\\/g, "/")).replace(/[\s/]+$/, "");
 
     if (this.#paths.has(path)) throw new Error(`Duplicate database path.\nExpected : A path that does not already exist.\nGot : '${path}'.\n`);
 
-    if (this.#mode == "ws" && this.#webSocket?.readyState !== WebSocket.OPEN)
-      throw new Error(`Invalid operation.\nExpected : WebSocket connection to be open.\nGot : WebSocket is not connected.\n`);
+    if (this.#mode == "ws" && this.#webSocket?.readyState !== WebSocket.OPEN) throw new Error(`Invalid operation.\nExpected : WebSocket connection to be open.\nGot : WebSocket is not connected.\n`);
 
     const requestMaker = this.#mode === "ws" ? this.#sendWSmessage.bind(this, path) : this.#sendRestRequest.bind(this, path);
 
     this.#paths.add(path);
-    return await new Database(requestMaker as any, op?.schema)
-      .init({ debounceTime: op?.debounceTime, maxDebounceCount: op?.maxDebounceCount, keysPerFile: op?.keysPerFile })
-      .catch((e) => {
-        this.#paths.delete(path);
-        throw e;
-      });
+    return await new Database(requestMaker as any, op?.schema).init({ debounceTime: op?.debounceTime, maxDebounceCount: op?.maxDebounceCount, keysPerFile: op?.keysPerFile }).catch((e) => {
+      this.#paths.delete(path);
+      throw e;
+    });
   }
 
   async #sendRestRequest<P>(path: string, PL: Protocols<P>[keyof Protocols<P>]["req"]): Promise<P> {

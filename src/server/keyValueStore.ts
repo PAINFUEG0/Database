@@ -277,20 +277,15 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
       if (this.#reservedWords.has(keys[i])) throw `${_}Reserved word '${keys[i]}' not allowed\n`;
 
-      if (!keys[i] || typeof keys[i] !== "string" || keys[i].length === 0 || keys[i].length > 255)
-        throw `${_}Expected : string literal with length > 0 < 255\nGot : '${keys[i]}'\n`;
+      if (!keys[i] || typeof keys[i] !== "string" || keys[i].length === 0 || keys[i].length > 255) throw `${_}Expected : string literal with length > 0 < 255\nGot : '${keys[i]}'\n`;
     }
   }
-
-  /////////////////////////////////////////////////// BOOLEAN METHODS ///////////////////////////////////////////////////
 
   toggle = (async (key) => {
     const data = (await this.has(key)) ? await this.get(key) : false;
     if (typeof data !== "boolean") throw new Error("Can't toggle non-boolean values");
     return (await this.set(key, !data as T)) as boolean;
   }) as Methods<T>["TOGGLE"];
-
-  /////////////////////////////////////////////////// NUMBER METHODS ////////////////////////////////////////////////////
 
   increment = (async (key, count = 1) => {
     let data = (await this.has(key)) ? await this.get(key) : 0;
@@ -303,8 +298,6 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     if (typeof data !== "number") throw new Error("Can't decrement non-numeric values");
     return <Promise<number>>this.set(key, (data - count) as T);
   }) as Methods<T>["DECREMENT"];
-
-  //////////////////////////////////////////////////// ARRAY METHODS ////////////////////////////////////////////////////
 
   async #getArrayData(K: string) {
     let raw: unknown[];
@@ -328,8 +321,5 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
   slice = (async (K, S, E) => ({ elements: (await this.#getArrayData(K)).slice(S, E) })) as Methods<T>["SLICE"];
   push = ((K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.push(...items), items) }))) as Methods<T>["PUSH"];
   unshift = ((K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.unshift(...items), items) }))) as Methods<T>["UNSHIFT"];
-  splice = ((K, ...args) =>
-    this.#mutate(K, (arr) => ({ added: args.slice(2), removed: arr.splice(...(args as [number, number, ...unknown[]])) }))) as Methods<T>["SPLICE"];
-
-  /////////////////////////////////////////////////// PRIVATE HELPERS ///////////////////////////////////////////////////
+  splice = ((K, ...args) => this.#mutate(K, (arr) => ({ added: args.slice(2), removed: arr.splice(...(args as [number, number, ...unknown[]])) }))) as Methods<T>["SPLICE"];
 }

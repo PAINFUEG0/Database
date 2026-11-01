@@ -46,8 +46,7 @@ export const actions = Object.assign(<T>Object.create(null), {
 
     if (PL.path.length > 256) throw new Error(`Invalid database path.\nExpected : String <= 256 characters.\nGot : ${PL.path.length} characters.\n`);
 
-    if (posix.isAbsolute(PL.path) || /^[a-zA-Z]:/.test(PL.path))
-      throw new Error(`Invalid database path.\nExpected : A relative (non-absolute) path.\nGot : '${PL.path}'.\n`);
+    if (posix.isAbsolute(PL.path) || /^[a-zA-Z]:/.test(PL.path)) throw new Error(`Invalid database path.\nExpected : A relative (non-absolute) path.\nGot : '${PL.path}'.\n`);
 
     if (PL.path === "" || PL.path === "." || PL.path === ".." || PL.path.startsWith("../"))
       throw new Error(`Invalid database path.\nExpected : A path that resolves within the storage directory.\nGot : '${PL.path}'.\n`);
