@@ -1,14 +1,12 @@
 /** @format */
 
 import { z } from "zod";
-import type { Protocols } from "../types";
+import type { El, Protocols } from "../types";
 
 export class Database<T> {
   #schema?: z.ZodType;
   #initialized = false;
-  #makeRequest: <P extends Protocols<T>[keyof Protocols<T>]["req"]>(
-    PL: P
-  ) => Promise<Protocols<T>[keyof Protocols<T> & P["method"]]["res"]>;
+  #makeRequest: <P extends Protocols<T>[keyof Protocols<T>]["req"]>(PL: P) => Promise<Protocols<T>[keyof Protocols<T> & P["method"]]["res"]>;
 
   constructor(payloadSenderFunction: <D>(PL: Protocols<D>[keyof Protocols<D>]["req"]) => Promise<D>, schema?: z.ZodType) {
     this.#schema = schema;
@@ -43,19 +41,18 @@ export class Database<T> {
   }
 
   async set(key: string, value: T) {
-    this.#schema && (await this.#schema.parseAsync(value));
+    await this.#schema?.parseAsync(value);
     return this.#makeRequest({ method: "SET", key, value });
   }
 
   async setMany(data: { key: string; value: T }[]) {
-    this.#schema &&
-      (await Promise.all(
-        data.map(({ key, value }, i) =>
-          this.#schema!.parseAsync(value).catch((err) => {
-            throw new Error(`Invalid value provided for key: ${key} @ index ${i}.\nError:\n${err.message}`);
-          })
-        )
-      ));
+    await Promise.all(
+      data.map(({ key, value }, i) =>
+        this.#schema?.parseAsync(value).catch((err) => {
+          throw new Error(`Invalid value provided for key: ${key} @ index ${i}.\nError:\n${err.message}`);
+        })
+      )
+    );
     return this.#makeRequest({ method: "SET_MANY", data });
   }
 
@@ -65,5 +62,36 @@ export class Database<T> {
 
   async deleteMany(keys: string[]) {
     return this.#makeRequest({ method: "DELETE_MANY", keys });
+  }
+
+  async length(key: string) {
+    return this.#makeRequest({ method: "LENGTH", key });
+  }
+
+  async pop(key: string) {
+    return this.#makeRequest({ method: "POP", key });
+  }
+
+  async shift(key: string) {
+    return this.#makeRequest({ method: "SHIFT", key });
+  }
+
+  async push(key: string, ...items: El<T>[]) {
+    items && (await this.#schema?.parseAsync(items));
+    return this.#makeRequest({ method: "PUSH", key, items });
+  }
+
+  async unshift(key: string, ...items: El<T>[]) {
+    items && (await this.#schema?.parseAsync(items));
+    return this.#makeRequest({ method: "UNSHIFT", key, items });
+  }
+
+  async slice(key: string, start: number, end?: number) {
+    return this.#makeRequest({ method: "SLICE", key, start, end });
+  }
+
+  async splice(key: string, start: number, deleteCount?: number, ...items: El<T>[]) {
+    items && this.#schema?.parse(items);
+    return this.#makeRequest({ method: "SPLICE", key, start, deleteCount, items });
   }
 }

@@ -318,5 +318,5 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
   unshift = ((K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.unshift(...items), items) }))) as IfArray<T, (K: string, ...items: El<T>[]) => Promise<{ elements: El<T>[]; length: number }>>;
 
   //prettier-ignore
-  splice = ((K, ...args) => this.#mutate(K, (arr) => ({ removed: arr.splice(...(args as [number, number, ...unknown[]])) }))) as IfArray<T, (K: string, start: number, deleteCount?: number, ...items: El<T>[]) => Promise<{ removed: El<T>[]; length: number }>>;
+  splice = ((K, ...args) => this.#mutate(K, (arr) => ({ added:args.slice(2), removed: arr.splice(...(args as [number, number, ...unknown[]])) }))) as IfArray<T, (K: string, start: number, deleteCount?: number, ...items: El<T>[]) => Promise<{ added:El<T>[]; removed: El<T>[]; length: number }>>;
 }

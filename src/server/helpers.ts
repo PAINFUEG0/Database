@@ -25,6 +25,17 @@ export const actions = Object.assign(<T>Object.create(null), {
   DELETE: (db, PL) => db.delete(PL.key),
   DELETE_MANY: (db, PL) => db.deleteMany(PL.keys),
 
+  LENGTH: async (db, PL) => (await db.length(PL.key)).length,
+
+  POP: (db, PL) => db.pop(PL.key),
+  SHIFT: (db, PL) => db.shift(PL.key),
+
+  PUSH: (db, PL) => db.push(PL.key, ...PL.items),
+  UNSHIFT: (db, PL) => db.unshift(PL.key, ...PL.items),
+
+  SLICE: (db, PL) => db.slice(PL.key, PL.start, PL.end),
+  SPLICE: (db, PL) => (PL.deleteCount === undefined ? db.splice(PL.key, PL.start) : db.splice(PL.key, PL.start, PL.deleteCount, ...(PL.items ?? []))),
+
   INIT: async (_, PL) => {
     PL.path = posix.normalize(PL.path.trim().replace(/\\/g, "/")).replace(/[\s/]+$/, "");
 

@@ -52,6 +52,20 @@ export type Protocols<T = unknown> = {
 
   SET: { req: { method: "SET"; key: string; value: T }; res: T };
   SET_MANY: { req: { method: "SET_MANY"; data: { key: string; value: T }[] }; res: Protocols<T>["SET"]["res"][] };
+
+  LENGTH: { req: { method: "LENGTH"; key: string }; res: number };
+
+  POP: { req: { method: "POP"; key: string }; res: { element?: El<T>; length: number } };
+  SHIFT: { req: { method: "SHIFT"; key: string }; res: { element?: El<T>; length: number } };
+
+  PUSH: { req: { method: "PUSH"; key: string; items: El<T>[] }; res: { elements: El<T>[]; length: number } };
+  UNSHIFT: { req: { method: "UNSHIFT"; key: string; items: El<T>[] }; res: { elements: El<T>[]; length: number } };
+
+  SLICE: { req: { method: "SLICE"; key: string; start: number; end?: number }; res: { elements: El<T>[] } };
+  SPLICE: {
+    req: { method: "SPLICE"; key: string; start: number; deleteCount?: number; items?: El<T>[] };
+    res: { removed: El<T>[]; added: El<T>[]; length: number };
+  };
 };
 
 export type DatabaseServerResponse<T = unknown> = { requestId: string; data: T } | { requestId: string; error: string };
