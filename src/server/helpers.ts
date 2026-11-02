@@ -6,6 +6,7 @@ import { KeyValueStore as Store } from "./keyValueStore.js";
 
 import type { Protocols } from "../types.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import z from "zod";
 
 const promises = new Map<string, Promise<boolean>>();
 type T = { [K in keyof Protocols]: (db: Store, pl: Protocols[K]["req"] & { path: string }) => Promise<Protocols[K]["res"]> };
@@ -59,7 +60,8 @@ export const actions = Object.assign(<T>Object.create(null), {
       path,
       keysPerFile: PL.options.keysPerFile,
       debounceTime: PL.options.debounceTime,
-      maxDebounceCount: PL.options.maxDebounceCount
+      maxDebounceCount: PL.options.maxDebounceCount,
+      ...(PL.schema ? { schema: z.fromJSONSchema(PL.schema) } : {})
     });
 
     const ready = kv.init().then(

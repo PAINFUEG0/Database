@@ -13,98 +13,41 @@ export class Database<T> {
     this.#makeRequest = payloadSenderFunction;
   }
 
-  async init(options: Protocols<T>["INIT"]["req"]["options"] = {}) {
+  init = async (options: Protocols<T>["INIT"]["req"]["options"] = {}) => {
     if (this.#initialized) return this;
-    await this.#makeRequest({ method: "INIT", options });
+    await this.#makeRequest({ method: "INIT", options, schema: this.#schema?.toJSONSchema() });
     this.#initialized = true;
     return this;
-  }
+  };
 
-  async all() {
-    return this.#makeRequest({ method: "ALL" });
-  }
+  all = async () => this.#makeRequest({ method: "ALL" });
 
-  async has(key: string) {
-    return this.#makeRequest({ method: "HAS", key });
-  }
+  has = async (key: string) => this.#makeRequest({ method: "HAS", key });
+  hasMany = async (keys: string[]) => this.#makeRequest({ method: "HAS_MANY", keys });
 
-  async get(key: string) {
-    return this.#makeRequest({ method: "GET", key });
-  }
+  get = async (key: string) => this.#makeRequest({ method: "GET", key });
+  getMany = async (keys: string[]) => this.#makeRequest({ method: "GET_MANY", keys });
 
-  async delete(key: string) {
-    return this.#makeRequest({ method: "DELETE", key });
-  }
+  delete = async (key: string) => this.#makeRequest({ method: "DELETE", key });
+  deleteMany = async (keys: string[]) => this.#makeRequest({ method: "DELETE_MANY", keys });
 
-  async hasMany(keys: string[]) {
-    return this.#makeRequest({ method: "HAS_MANY", keys });
-  }
+  set = async (key: string, value: T) => this.#makeRequest({ method: "SET", key, value });
+  setMany = async (data: { key: string; value: T }[]) => this.#makeRequest({ method: "SET_MANY", data });
 
-  async getMany(keys: string[]) {
-    return this.#makeRequest({ method: "GET_MANY", keys });
-  }
+  pop = (async (key) => this.#makeRequest({ method: "POP", key })) as Methods<T>["POP"];
+  shift = (async (key) => this.#makeRequest({ method: "SHIFT", key })) as Methods<T>["SHIFT"];
 
-  async deleteMany(keys: string[]) {
-    return this.#makeRequest({ method: "DELETE_MANY", keys });
-  }
+  length = (async (key) => this.#makeRequest({ method: "LENGTH", key })) as Methods<T>["LENGTH"];
+  slice = (async (key, start, end) => this.#makeRequest({ method: "SLICE", key, start, end })) as Methods<T>["SLICE"];
 
-  async set(key: string, value: T) {
-    if (["symbol", "bigint", "function"].includes(typeof value)) throw `Can't serialize data of type '${typeof value}' for storage`;
-    value = this.#schema ? ((await this.#schema?.parseAsync(value)) as T) : value;
-    return this.#makeRequest({ method: "SET", key, value });
-  }
+  push = (async (key, ...items) => this.#makeRequest({ method: "PUSH", key, items })) as Methods<T>["PUSH"];
+  unshift = (async (key, ...items) => this.#makeRequest({ method: "UNSHIFT", key, items })) as Methods<T>["UNSHIFT"];
 
-  async setMany(data: { key: string; value: T }[]) {
-    data = await Promise.all(
-      data.map(async ({ key, value }) => {
-        if (["symbol", "bigint", "function"].includes(typeof value)) throw `Can't serialize data of type '${typeof value}' for storage`;
-        value = this.#schema ? ((await this.#schema?.parseAsync(value)) as T) : value;
-        return { key, value };
-      })
-    );
-    return this.#makeRequest({ method: "SET_MANY", data });
-  }
+  splice = (async (key, start, deleteCount, ...items) =>
+    this.#makeRequest({ method: "SPLICE", key, start, deleteCount, items })) as Methods<T>["SPLICE"];
 
-  pop = (async (key) => {
-    return this.#makeRequest({ method: "POP", key });
-  }) as Methods<T>["POP"];
+  toggle = (async (key) => this.#makeRequest({ method: "TOGGLE", key })) as Methods<T>["TOGGLE"];
 
-  shift = (async (key) => {
-    return this.#makeRequest({ method: "SHIFT", key });
-  }) as Methods<T>["SHIFT"];
-
-  length = (async (key) => {
-    return this.#makeRequest({ method: "LENGTH", key });
-  }) as Methods<T>["LENGTH"];
-
-  slice = (async (key, start, end) => {
-    return this.#makeRequest({ method: "SLICE", key, start, end });
-  }) as Methods<T>["SLICE"];
-
-  push = (async (key, ...items) => {
-    await this.#schema?.parseAsync(items);
-    return this.#makeRequest({ method: "PUSH", key, items });
-  }) as Methods<T>["PUSH"];
-
-  unshift = (async (key, ...items) => {
-    await this.#schema?.parseAsync(items);
-    return this.#makeRequest({ method: "UNSHIFT", key, items });
-  }) as Methods<T>["UNSHIFT"];
-
-  splice = (async (key, start, deleteCount, ...items) => {
-    items && (await this.#schema?.parseAsync(items));
-    return this.#makeRequest({ method: "SPLICE", key, start, deleteCount, items });
-  }) as Methods<T>["SPLICE"];
-
-  toggle = (async (key) => {
-    return this.#makeRequest({ method: "TOGGLE", key });
-  }) as Methods<T>["TOGGLE"];
-
-  increment = (async (key, count) => {
-    return this.#makeRequest({ method: "INCREMENT", key, count });
-  }) as Methods<T>["INCREMENT"];
-
-  decrement = (async (key, count) => {
-    return this.#makeRequest({ method: "DECREMENT", key, count });
-  }) as Methods<T>["DECREMENT"];
+  increment = (async (key, count) => this.#makeRequest({ method: "INCREMENT", key, count })) as Methods<T>["INCREMENT"];
+  decrement = (async (key, count) => this.#makeRequest({ method: "DECREMENT", key, count })) as Methods<T>["DECREMENT"];
 }

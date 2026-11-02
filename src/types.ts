@@ -1,5 +1,7 @@
 /** @format */
 
+import z from "zod";
+
 export type RequestMode = "ws" | "rest";
 
 export type KVstoreOptions = {
@@ -37,7 +39,7 @@ export type DatabaseClientRequest<T> = {
 };
 
 export type Protocols<T = unknown> = {
-  INIT: { req: { method: "INIT"; options: Omit<KVstoreOptions, "path"> }; res: boolean };
+  INIT: { req: { method: "INIT"; options: Omit<KVstoreOptions, "path">; schema?: z.core.ZodStandardJSONSchemaPayload<z.ZodUnknown> }; res: boolean };
 
   ALL: { req: { method: "ALL" }; res: { [key: string]: T } };
 
