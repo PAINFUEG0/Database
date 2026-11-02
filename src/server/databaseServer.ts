@@ -79,10 +79,10 @@ export class DatabaseServer {
       verifyClient: (info, callback) => callback(info.req.headers["authorization"] === this.#auth)
     });
 
-    return new Promise<void>((resolve) => {
+    return new Promise<number>((resolve) => {
       server.listen(this.#port, () => {
-        resolve();
         const port = (server.address()! as any).port;
+        resolve(port);
 
         this.#onStdout(`REST - http${ssl ? "s" : ""}://${this.#ip}:${port}/rest`);
         this.#onStdout(`WebSocket - ws${ssl ? "s" : ""}://${this.#ip}:${port}/ws`);
