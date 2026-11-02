@@ -299,5 +299,6 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
   slice = (async (K, S, E) => ({ elements: this.#getArrayData(K).slice(S, E) })) as Methods<T>["SLICE"];
   push = (async (K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.push(...items), items) }))) as Methods<T>["PUSH"];
   unshift = (async (K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.unshift(...items), items) }))) as Methods<T>["UNSHIFT"];
-  splice = (async (K, S, D, ...added) => this.#mutate(K, (arr) => ({ added, removed: arr.splice(S, D ?? 0, ...added) }))) as Methods<T>["SPLICE"];
+  splice = (async (K, S, D, ...items) =>
+    this.#mutate(K, (arr) => ({ added: items, removed: D === undefined ? arr.splice(S) : arr.splice(S, D, ...items) }))) as Methods<T>["SPLICE"];
 }
