@@ -62,7 +62,10 @@ export type Protocols<T = unknown> = {
   UNSHIFT: { req: { method: "UNSHIFT"; key: string; items: El<T>[] }; res: { elements: El<T>[]; length: number } };
 
   SLICE: { req: { method: "SLICE"; key: string; start: number; end?: number }; res: { elements: El<T>[] } };
-  SPLICE: { req: { method: "SPLICE"; key: string; start: number; deleteCount?: number; items?: El<T>[] }; res: { removed: El<T>[]; added: El<T>[]; length: number } };
+  SPLICE: {
+    req: { method: "SPLICE"; key: string; start: number; deleteCount?: number; items?: El<T>[] };
+    res: { removed: El<T>[]; added: El<T>[]; length: number };
+  };
 
   TOGGLE: { req: { method: "TOGGLE"; key: string }; res: boolean };
 
