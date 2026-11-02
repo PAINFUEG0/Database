@@ -207,7 +207,9 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
   async setMany(data: { key: string; value: T }[]) {
     data = data.map(({ key, value }) => (this.#validateKeys(key), { key, value: this.#schema ? (this.#schema?.parse(value) as T) : value }));
-    const lines = data.map(({ key, value }) => JSON.stringify({ timestamp: this.#start + performance.now(), op: "set", key, value }));
+    const lines = data.map(({ key, value }) =>
+      JSON.stringify({ timestamp: this.#start + performance.now(), op: value === undefined ? "delete" : "set", key, value })
+    );
     fs.writeSync(this.#journal, lines.join("\n") + "\n");
     const res = data.map(({ key, value }) => (value === undefined ? (this.#deleteEntry(key), value) : this.#updateOrCreateEntry(key, value)));
     await this.#debouncedWrite();
@@ -228,7 +230,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
   }
 
   all(): { [K: string]: T } {
-    const result = {};
+    const result = Object.create(null);
     for (const data of this.#cache.values()) Object.assign(result, data);
     return structuredClone(result);
   }
