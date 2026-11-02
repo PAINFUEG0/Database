@@ -206,12 +206,14 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
   }
 
   async setMany(data: { key: string; value: T }[]) {
-    data = data.map(({ key, value }) => (this.#validateKeys(key), { key, value: this.#schema ? (this.#schema?.parse(value) as T) : value }));
-    const lines = data.map(({ key, value }) =>
-      JSON.stringify({ timestamp: this.#start + performance.now(), op: value === undefined ? "delete" : "set", key, value })
-    );
+    data = data.map(({ key, value }) => {
+      value = z.json().parse(this.#schema ? this.#schema.parse(value) : value) as T;
+      this.#validateKeys(key);
+      return { key, value };
+    });
+    const lines = data.map(({ key, value }) => JSON.stringify({ timestamp: this.#start + performance.now(), op: "set", key, value }));
     fs.writeSync(this.#journal, lines.join("\n") + "\n");
-    const res = data.map(({ key, value }) => (value === undefined ? (this.#deleteEntry(key), value) : this.#updateOrCreateEntry(key, value)));
+    const res = data.map(({ key, value }) => this.#updateOrCreateEntry(key, value));
     await this.#debouncedWrite();
     return res;
   }
