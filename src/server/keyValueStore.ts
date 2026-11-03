@@ -273,8 +273,8 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     const shard = this.#reverseKeymap[key];
     const data = shard ? this.#cache.get(shard)![key] : 0;
 
-    if (typeof data !== "number") throw new Error("Can't increment non-numeric values");
-    if (typeof count !== "number") throw new Error("Can't increment with a non-numeric count");
+    if (typeof data !== "number") throw new Error("Can't decrement non-numeric values");
+    if (typeof count !== "number") throw new Error("Can't decrement with a non-numeric count");
 
     return <Promise<number>>this.set(key, (data - count) as T);
   }) as Methods<T>["DECREMENT"];
