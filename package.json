@@ -1,5 +1,17 @@
 {
-  "name": "Database",
+  "name": "database",
+  "version": "1.0.0",
+  "description": "An in-memory K-V store with file-backed persistence",
+  "license": "MIT",
+  "author": {
+    "name": "painfueg0",
+    "email": "contact@painfuego.xyz"
+  },
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
     "@types/node": "^24.13.3",
     "@types/ws": "^8.18.1",
