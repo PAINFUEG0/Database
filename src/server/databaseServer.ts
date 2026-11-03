@@ -21,6 +21,7 @@ export class DatabaseServer {
   #auth: string;
   #port: number;
   #cert?: string;
+  #rejectUnauthorized?: boolean;
   #onStderr: NonNullable<DatabaseServerOptions["onStderr"]>;
   #onStdout: NonNullable<DatabaseServerOptions["onStdout"]>;
 
@@ -40,8 +41,9 @@ export class DatabaseServer {
               .string({ error: "SSL option 'key' must be a string" })
               .refine((path) => fs.existsSync(path), { error: "SSL key file does not exist" }),
             cert: z
-              .string({ error: "SSL option 'key' must be a string" })
-              .refine((path) => fs.existsSync(path), { error: "SSL certificate file does not exist" })
+              .string({ error: "SSL option 'cert' must be a string" })
+              .refine((path) => fs.existsSync(path), { error: "SSL certificate file does not exist" }),
+            rejectUnauthorized: z.number({ error: "SSL option 'rejectUnauthorized' must be a boolean" }).optional()
           },
           { error: "Option 'ssl' must be an object containing key and cert" }
         )
@@ -52,6 +54,7 @@ export class DatabaseServer {
 
     this.#port = options.port;
     this.#auth = options.passphrase;
+    this.#rejectUnauthorized = options.ssl?.rejectUnauthorized;
     this.#onStdout = options.onStdout || console.log.bind(console);
     this.#onStderr = options.onStderr || console.error.bind(console);
     this.#key = options.ssl?.key && fs.readFileSync(options.ssl.key).toString();
@@ -70,7 +73,7 @@ export class DatabaseServer {
     const ssl = this.#key && this.#cert;
 
     const server = ssl
-      ? createHttpsServer({ key: this.#key, cert: this.#cert }, this.#requestHandler.bind(this))
+      ? createHttpsServer({ key: this.#key, cert: this.#cert, rejectUnauthorized: this.#rejectUnauthorized }, this.#requestHandler.bind(this))
       : createHttpServer(this.#requestHandler.bind(this));
 
     const wss = new WebSocketServer({

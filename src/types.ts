@@ -28,7 +28,7 @@ export type DatabaseServerOptions = {
   passphrase: string;
   onStderr?: (err: string) => void;
   onStdout?: (data: string) => void;
-  ssl?: { key: string; cert: string };
+  ssl?: { key: string; cert: string; rejectUnauthorized: boolean };
 };
 
 export type DatabaseClientRequest<T> = {
