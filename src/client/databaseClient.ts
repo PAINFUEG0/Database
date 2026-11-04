@@ -1,6 +1,7 @@
 /** @format */
 
 import { z } from "zod";
+import { Agent } from "undici";
 import { WebSocket } from "ws";
 import { posix } from "node:path";
 import { once } from "node:events";
@@ -11,12 +12,15 @@ import type { RequestMode, DatabaseClientRequest, DatabaseClientOptions, Databas
 
 export class DatabaseClient {
   #address: string;
+  #dispatcher: Agent;
   #mode: RequestMode;
   #passphrase: string;
   #webSocket?: WebSocket;
   #paths = new Set<string>();
+
   #requests = new Map<string, DatabaseClientRequest<any>>();
 
+  #rejectUnauthorized;
   #throwOnError = true;
   #throwOnDisconnect = true;
 
@@ -27,7 +31,15 @@ export class DatabaseClient {
     z.object({
       port: z.number({ error: "Option 'port' must be a number" }),
       passphrase: z.string({ error: "Option 'passphrase' must be a string" }),
-      secure: z.boolean({ error: "Option 'secure' must be a boolean" }).optional(),
+      ssl: z
+        .object(
+          {
+            enabled: z.boolean({ error: "SSL option 'enabled' must be a boolean" }),
+            rejectUnauthorized: z.boolean({ error: "SSL option 'rejectUnauthorized' must be a boolean" }).optional()
+          },
+          { error: "Option 'ssl' must be an object containing the op 'enabled' and 'rejectUnauthorized'" }
+        )
+        .optional(),
       throwOnError: z.boolean({ error: "Option 'throwOnError' must be a boolean" }).optional(),
       mode: z.enum(["ws", "rest"], { error: "Option 'mode' must be either 'ws' or 'rest'" }).optional(),
       throwOnDisconnect: z.boolean({ error: "Option 'throwOnDisconnect' must be a boolean" }).optional(),
@@ -42,17 +54,19 @@ export class DatabaseClient {
     this.#passphrase = options.passphrase;
 
     this.#onError = options.onError ?? console.error;
+    this.#rejectUnauthorized = options.ssl?.rejectUnauthorized;
     this.#throwOnError = options.throwOnError ?? !options.onError;
     this.#throwOnDisconnect = options.throwOnDisconnect ?? !options.onDisconnect;
+    this.#dispatcher = new Agent({ connect: { rejectUnauthorized: this.#rejectUnauthorized } });
     this.#onDisconnect = options.onDisconnect ?? console.error.bind(console, "Client disconnected ! Address : ");
 
-    this.#address = `${this.#mode === "ws" ? "ws" : "http"}${options.secure ? "s" : ""}://${options.host}:${options.port}/${this.#mode}`;
+    this.#address = `${this.#mode === "ws" ? "ws" : "http"}${options.ssl?.enabled ? "s" : ""}://${options.host}:${options.port}/${this.#mode}`;
   }
 
   async connect() {
     if (this.#mode !== "ws") return;
 
-    this.#webSocket = new WebSocket(this.#address, { headers: { Authorization: this.#passphrase } });
+    this.#webSocket = new WebSocket(this.#address, { headers: { Authorization: this.#passphrase }, rejectUnauthorized: this.#rejectUnauthorized });
 
     await once(this.#webSocket, "open");
 
@@ -112,6 +126,7 @@ export class DatabaseClient {
     return fetch(this.#address, {
       method: "POST",
       signal: AbortSignal.timeout(60_000),
+      dispatcher: this.#dispatcher as any,
       body: JSON.stringify({ ...PL, path }),
       headers: { "Content-Type": "application/json", Authorization: this.#passphrase }
     }).then(async (raw) => {

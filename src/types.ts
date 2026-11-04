@@ -14,13 +14,13 @@ export type KVstoreOptions = {
 export type DatabaseClientOptions = {
   host: string;
   port: number;
-  secure?: boolean;
   passphrase: string;
   mode?: RequestMode;
   throwOnError?: boolean;
   throwOnDisconnect?: boolean;
   onError?: (err: Error) => void;
   onDisconnect?: (address: string) => void;
+  ssl?: { enabled: boolean; rejectUnauthorized?: boolean };
 };
 
 export type DatabaseServerOptions = {
@@ -28,7 +28,7 @@ export type DatabaseServerOptions = {
   passphrase: string;
   onStderr?: (err: string) => void;
   onStdout?: (data: string) => void;
-  ssl?: { key: string; cert: string; rejectUnauthorized: boolean };
+  ssl?: { key: string; cert: string; rejectUnauthorized?: boolean };
 };
 
 export type DatabaseClientRequest<T> = {

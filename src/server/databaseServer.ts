@@ -43,7 +43,7 @@ export class DatabaseServer {
             cert: z
               .string({ error: "SSL option 'cert' must be a string" })
               .refine((path) => fs.existsSync(path), { error: "SSL certificate file does not exist" }),
-            rejectUnauthorized: z.number({ error: "SSL option 'rejectUnauthorized' must be a boolean" }).optional()
+            rejectUnauthorized: z.boolean({ error: "SSL option 'rejectUnauthorized' must be a boolean" }).optional()
           },
           { error: "Option 'ssl' must be an object containing key and cert" }
         )
