@@ -1,10 +1,10 @@
 /** @format */
 
 import { z } from "zod";
-import { Agent } from "undici";
 import { WebSocket } from "ws";
 import { posix } from "node:path";
 import { once } from "node:events";
+import { Agent, fetch } from "undici";
 import { Database } from "./database.js";
 import { randomUUID } from "node:crypto";
 
@@ -125,8 +125,8 @@ export class DatabaseClient {
   async #sendRestRequest<P>(path: string, PL: Protocols<P>[keyof Protocols<P>]["req"]): Promise<P> {
     return fetch(this.#address, {
       method: "POST",
+      dispatcher: this.#dispatcher,
       signal: AbortSignal.timeout(60_000),
-      dispatcher: this.#dispatcher as any,
       body: JSON.stringify({ ...PL, path }),
       headers: { "Content-Type": "application/json", Authorization: this.#passphrase }
     }).then(async (raw) => {
