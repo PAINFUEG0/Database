@@ -24,6 +24,8 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
   #timer?: NodeJS.Timeout;
   #tempJournalPath!: string;
 
+  #shardPool = new Set<string>();
+  #currentShard = <string | null>null;
   #keymap: { [K: string]: Set<string> } = {};
   #reverseKeymap: { [K: string]: string } = {};
   #cache = new Map<string, { [K: string]: T }>();
@@ -64,6 +66,9 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     this.#journal = fs.openSync(this.#journalPath, "a");
     this.#replayJournal();
     await this.#write();
+
+    for (const [fileName, keysInFile] of Object.entries(this.#keymap)) if (keysInFile.size < this.#keysPerFile) this.#shardPool.add(fileName);
+
     return this;
   }
 
@@ -77,15 +82,22 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
   }
 
   #lookforSpaciousFile(): string | null {
-    for (const [fileName, keysInFile] of Object.entries(this.#keymap)) if (keysInFile.size < this.#keysPerFile) return fileName;
-    return null;
+    if (this.#currentShard && (this.#keymap[this.#currentShard]?.size || 0) < this.#keysPerFile) return this.#currentShard;
+    else this.#currentShard && this.#shardPool.delete(this.#currentShard);
+
+    for (const shard of this.#shardPool)
+      if ((this.#keymap[shard]?.size || 0) < this.#keysPerFile) return (this.#currentShard = shard);
+      else this.#shardPool.delete(shard);
+
+    return (this.#currentShard = null);
   }
 
   #createFile(): string {
-    const fileName = `data_${Object.keys(this.#keymap).length + 1}.json`;
-    this.#keymap[fileName] = new Set();
-    this.#cache.set(fileName, {});
-    return fileName;
+    this.#currentShard = `data_${Object.keys(this.#keymap).length + 1}.json`;
+    this.#keymap[this.#currentShard] = new Set();
+    this.#cache.set(this.#currentShard, {});
+    this.#shardPool.add(this.#currentShard);
+    return this.#currentShard;
   }
 
   async #writeAtomic(file: string, content: string): Promise<void> {
@@ -177,6 +189,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     shard && delete this.#reverseKeymap[key];
     shard && this.#keymap[shard]!.delete(key);
     shard && this.#writeQueue.add(shard);
+    shard && this.#shardPool.add(shard);
     return !!shard;
   }
 
