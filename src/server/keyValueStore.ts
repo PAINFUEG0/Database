@@ -26,8 +26,8 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
   #shardPool = new Set<string>();
   #currentShard = <string | null>null;
-  #keymap: { [K: string]: Set<string> } = {};
-  #reverseKeymap: { [K: string]: string } = {};
+  #index: { [K: string]: Set<string> } = {};
+  #reverseIndex: { [K: string]: string } = {};
   #cache = new Map<string, { [K: string]: T }>();
 
   #reservedWords = new Set([...Object.getOwnPropertyNames(Object.prototype), "prototype"]);
@@ -67,7 +67,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     this.#replayJournal();
     await this.#write();
 
-    for (const [fileName, keysInFile] of Object.entries(this.#keymap)) if (keysInFile.size < this.#keysPerFile) this.#shardPool.add(fileName);
+    for (const [fileName, keysInFile] of Object.entries(this.#index)) if (keysInFile.size < this.#keysPerFile) this.#shardPool.add(fileName);
 
     return this;
   }
@@ -82,19 +82,19 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
   }
 
   #lookforSpaciousFile(): string | null {
-    if (this.#currentShard && (this.#keymap[this.#currentShard]?.size || 0) < this.#keysPerFile) return this.#currentShard;
+    if (this.#currentShard && (this.#index[this.#currentShard]?.size || 0) < this.#keysPerFile) return this.#currentShard;
     else this.#currentShard && this.#shardPool.delete(this.#currentShard);
 
     for (const shard of this.#shardPool)
-      if ((this.#keymap[shard]?.size || 0) < this.#keysPerFile) return (this.#currentShard = shard);
+      if ((this.#index[shard]?.size || 0) < this.#keysPerFile) return (this.#currentShard = shard);
       else this.#shardPool.delete(shard);
 
     return (this.#currentShard = null);
   }
 
   #createFile(): string {
-    this.#currentShard = `data_${Object.keys(this.#keymap).length + 1}.json`;
-    this.#keymap[this.#currentShard] = new Set();
+    this.#currentShard = `data_${Object.keys(this.#index).length + 1}.json`;
+    this.#index[this.#currentShard] = new Set();
     this.#cache.set(this.#currentShard, {});
     this.#shardPool.add(this.#currentShard);
     return this.#currentShard;
@@ -114,8 +114,8 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
       const data = JSON.parse(fs.readFileSync(resolve(this.#path, file), "utf-8"));
       const keys = Object.keys(data);
 
-      this.#keymap[file] = new Set(keys);
-      for (const key of keys) this.#reverseKeymap[key] = file;
+      this.#index[file] = new Set(keys);
+      for (const key of keys) this.#reverseIndex[key] = file;
 
       this.#cache.set(file, data);
     }
@@ -166,7 +166,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
   }
 
   #updateOrCreateEntry(key: string, value: T): T {
-    let shard = this.#reverseKeymap[key];
+    let shard = this.#reverseIndex[key];
 
     if (shard) {
       if (this.#cache.get(shard)![key] === value) return value;
@@ -175,8 +175,8 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     } else {
       shard = this.#lookforSpaciousFile() || this.#createFile();
       this.#cache.get(shard)![key] = structuredClone(value);
-      this.#reverseKeymap[key] = shard;
-      this.#keymap[shard]!.add(key);
+      this.#reverseIndex[key] = shard;
+      this.#index[shard]!.add(key);
       this.#writeQueue.add(shard);
     }
 
@@ -184,10 +184,10 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
   }
 
   #deleteEntry(key: string): boolean {
-    const shard = this.#reverseKeymap[key];
+    const shard = this.#reverseIndex[key];
     shard && delete this.#cache.get(shard)![key];
-    shard && delete this.#reverseKeymap[key];
-    shard && this.#keymap[shard]!.delete(key);
+    shard && delete this.#reverseIndex[key];
+    shard && this.#index[shard]!.delete(key);
     shard && this.#writeQueue.add(shard);
     shard && this.#shardPool.add(shard);
     return !!shard;
@@ -195,7 +195,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
   async has(key: string) {
     this.#validateKeys(key);
-    return key in this.#reverseKeymap;
+    return key in this.#reverseIndex;
   }
 
   async hasMany(keys: string[]) {
@@ -205,7 +205,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
   async get(key: string) {
     this.#validateKeys(key);
-    const shard = this.#reverseKeymap[key];
+    const shard = this.#reverseIndex[key];
     return structuredClone(shard ? <T>this.#cache.get(shard)![key] : null);
   }
 
@@ -262,7 +262,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
   toggle = (async (key) => {
     this.#validateKeys(key);
-    const shard = this.#reverseKeymap[key];
+    const shard = this.#reverseIndex[key];
     const data = shard ? this.#cache.get(shard)![key] : false;
 
     if (typeof data !== "boolean") throw new Error("Can't toggle non-boolean values");
@@ -272,7 +272,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
   increment = (async (key, count = 1) => {
     this.#validateKeys(key);
-    const shard = this.#reverseKeymap[key];
+    const shard = this.#reverseIndex[key];
     const data = shard ? this.#cache.get(shard)![key] : 0;
 
     if (typeof data !== "number") throw new Error("Can't increment non-numeric values");
@@ -283,7 +283,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
   decrement = (async (key, count = 1) => {
     this.#validateKeys(key);
-    const shard = this.#reverseKeymap[key];
+    const shard = this.#reverseIndex[key];
     const data = shard ? this.#cache.get(shard)![key] : 0;
 
     if (typeof data !== "number") throw new Error("Can't decrement non-numeric values");
@@ -294,7 +294,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
   #getArrayData(key: string) {
     this.#validateKeys(key);
-    const shard = this.#reverseKeymap[key];
+    const shard = this.#reverseIndex[key];
     const data = shard ? this.#cache.get(shard)![key] : [];
     if (!Array.isArray(data)) throw "This operation is reserved for array-only values";
     return structuredClone(data) as unknown[];
