@@ -193,7 +193,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
   async has(key: string) {
     this.#validateKeys(key);
-    return key in this.#reverseIndex;
+    return Object.hasOwn(this.#reverseIndex, key);
   }
 
   async hasMany(keys: string[]) {
