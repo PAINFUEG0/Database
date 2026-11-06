@@ -12,8 +12,6 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
   #schema?: z.ZodType;
   #writeQueue = new Set<string>();
 
-  #start = Date.now();
-
   #keysPerFile = 100;
   #debounceTime = 250;
   #maxDebounceCount = 100;
@@ -224,7 +222,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
       this.#validateKeys(key);
       return { key, value };
     });
-    const lines = data.map(({ key, value }) => JSON.stringify({ timestamp: this.#start + performance.now(), op: "set", key, value }));
+    const lines = data.map(({ key, value }) => JSON.stringify({ timestamp: performance.timeOrigin + performance.now(), op: "set", key, value }));
     fs.writeSync(this.#journal, lines.join("\n") + "\n");
     const res = data.map(({ key, value }) => this.#updateOrCreateEntry(key, value));
     await this.#debouncedWrite();
@@ -237,7 +235,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
 
   async deleteMany(keys: string[]) {
     this.#validateKeys(keys);
-    const lines = keys.map((K) => JSON.stringify({ timestamp: this.#start + performance.now(), op: "delete", key: K }));
+    const lines = keys.map((K) => JSON.stringify({ timestamp: performance.timeOrigin + performance.now(), op: "delete", key: K }));
     fs.writeSync(this.#journal, lines.join("\n") + "\n");
     const res = keys.map((K) => this.#deleteEntry(K));
     await this.#debouncedWrite();
