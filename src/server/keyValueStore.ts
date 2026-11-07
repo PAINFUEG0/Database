@@ -107,20 +107,22 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     await fs.promises.rename(resolve(this.#path, `${file}.tmp`), resolve(this.#path, file));
   }
 
-  #loadFilesIntoCache(): void {
-    const files = fs.readdirSync(this.#path);
+  async #loadFilesIntoCache() {
+    return Promise.all(
+      (await fs.promises.readdir(this.#path)).map(async (file) => {
+        if (file.endsWith(".tmp")) return fs.promises.unlink(resolve(this.#path, file));
+        if (!file.startsWith("data_") || !file.endsWith(".json")) return;
 
-    for (const file of files) {
-      if (!(file.endsWith(".json") && file.startsWith("data_"))) continue;
+        const raw = await fs.promises.readFile(resolve(this.#path, file), "utf-8");
 
-      const data = JSON.parse(fs.readFileSync(resolve(this.#path, file), "utf-8"));
-      const keys = Object.keys(data);
+        const data = JSON.parse(raw);
+        const keys = Object.keys(data);
 
-      this.#index[file] = new Set(keys);
-      for (const key of keys) this.#reverseIndex[key] = file;
-
-      this.#cache.set(file, data);
-    }
+        for (const key of keys) this.#reverseIndex[key] = file;
+        this.#index[file] = new Set(keys);
+        this.#cache.set(file, data);
+      })
+    );
   }
 
   async #write(): Promise<void> {
