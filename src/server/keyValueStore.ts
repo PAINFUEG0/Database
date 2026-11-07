@@ -2,6 +2,7 @@
 
 import z from "zod";
 import * as fs from "node:fs";
+import * as rl from "node:readline";
 import { resolve } from "node:path";
 
 import type { Methods, KVstoreOptions } from "../types";
@@ -62,7 +63,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     }
 
     this.#journal = fs.openSync(this.#journalPath, "a");
-    this.#replayJournal();
+    await this.#replayJournal();
     await this.#write();
 
     for (const [fileName, keysInFile] of Object.entries(this.#index)) if (keysInFile.size < this.#keysPerFile) this.#shardPool.add(fileName);
@@ -70,12 +71,15 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     return this;
   }
 
-  #replayJournal(): void {
-    for (const line of fs.readFileSync(this.#journalPath, "utf-8").split("\n")) {
+  async #replayJournal() {
+    const readStream = fs.createReadStream(this.#journalPath);
+    const readableInterface = rl.createInterface({ input: readStream, crlfDelay: Infinity });
+
+    for await (const line of readableInterface) {
       if (!line) continue;
       const _ = JSON.parse(line);
-      if (_.op === "set") this.#updateOrCreateEntry(_.key, _.value);
-      else if (_.op === "delete") this.#deleteEntry(_.key);
+      if (_.op === "delete") this.#deleteEntry(_.key);
+      else if (_.op === "set") this.#updateOrCreateEntry(_.key, _.value);
     }
   }
 
