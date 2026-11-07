@@ -50,19 +50,16 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
   }
 
   async init(): Promise<this> {
-    if (!fs.existsSync(this.#path)) fs.mkdirSync(this.#path, { recursive: true });
+    if (!fs.existsSync(this.#path)) await fs.promises.mkdir(this.#path, { recursive: true });
 
-    for (const file of fs.readdirSync(this.#path)) file.endsWith(".tmp") && fs.unlinkSync(resolve(this.#path, file));
+    await this.#loadFilesIntoCache();
 
-    this.#loadFilesIntoCache();
+    const current = await fs.promises.readFile(this.#journalPath, "utf-8").catch(() => "");
+    const old = await fs.promises.readFile(this.#tempJournalPath, "utf-8").catch(() => "");
+    await fs.promises.writeFile(this.#journalPath, `${old.trim()}\n${current.trim()}`);
+    old && (await fs.promises.unlink(this.#tempJournalPath));
 
-    if (fs.existsSync(this.#tempJournalPath)) {
-      const current = fs.existsSync(this.#journalPath) ? fs.readFileSync(this.#journalPath, "utf-8") : "";
-      const old = fs.readFileSync(this.#tempJournalPath, "utf-8");
-      fs.writeFileSync(this.#journalPath, `${old}\n${current}`);
-    }
-
-    this.#journal = fs.openSync(this.#journalPath, "a");
+    this.#journal = (await fs.promises.open(this.#journalPath, "a")).fd;
     await this.#replayJournal();
     await this.#write();
 
