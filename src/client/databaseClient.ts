@@ -64,7 +64,7 @@ export class DatabaseClient {
   }
 
   async connect() {
-    if (this.#mode !== "ws") return;
+    if (this.#mode !== "ws") return this;
 
     this.#webSocket = new WebSocket(this.#address, { headers: { Authorization: this.#passphrase }, rejectUnauthorized: this.#rejectUnauthorized });
 
@@ -92,6 +92,8 @@ export class DatabaseClient {
       if (this.#throwOnDisconnect) throw new Error(`Database server disconnected ! Address : ${this.#address}`);
       else this.#onDisconnect(this.#address);
     });
+
+    return this;
   }
 
   createDatabase<T = unknown>(path: string): Promise<Database<T>>;
