@@ -28,8 +28,10 @@ export type DatabaseServerOptions = {
   passphrase: string;
   onStderr?: (err: string) => void;
   onStdout?: (data: string) => void;
-  ssl?: { key: string; cert: string; rejectUnauthorized?: boolean };
+  ssl?: SslConfig;
 };
+
+export type SslConfig = { key: string; cert: string; rejectUnauthorized?: boolean };
 
 export type DatabaseClientRequest<T> = {
   promise: Promise<T>;
