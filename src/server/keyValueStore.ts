@@ -49,10 +49,13 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     if (op?.maxDebounceCount !== undefined) (validate("maxDebounceCount"), (this.#maxDebounceCount = op.maxDebounceCount));
   }
 
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
   async init(): Promise<this> {
     if (!fs.existsSync(this.#path)) await fs.promises.mkdir(this.#path, { recursive: true });
 
     await this.#loadFilesIntoCache();
+    for (const [fileName, keysInFile] of Object.entries(this.#index)) if (keysInFile.size < this.#keysPerFile) this.#shardPool.add(fileName);
 
     const current = await fs.promises.readFile(this.#journalPath, "utf-8").catch(() => "");
     const old = await fs.promises.readFile(this.#tempJournalPath, "utf-8").catch(() => "");
@@ -63,45 +66,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     await this.#replayJournal();
     await this.#write();
 
-    for (const [fileName, keysInFile] of Object.entries(this.#index)) if (keysInFile.size < this.#keysPerFile) this.#shardPool.add(fileName);
-
     return this;
-  }
-
-  async #replayJournal() {
-    const readStream = fs.createReadStream(this.#journalPath);
-    const readableInterface = rl.createInterface({ input: readStream, crlfDelay: Infinity });
-
-    for await (const line of readableInterface) {
-      if (!line) continue;
-      const _ = JSON.parse(line);
-      if (_.op === "delete") this.#deleteEntry(_.key);
-      else if (_.op === "set") this.#updateOrCreateEntry(_.key, _.value);
-    }
-  }
-
-  #lookforSpaciousFile(): string | null {
-    if (this.#currentShard && (this.#index[this.#currentShard]?.size || 0) < this.#keysPerFile) return this.#currentShard;
-    else this.#currentShard && this.#shardPool.delete(this.#currentShard);
-
-    for (const shard of this.#shardPool)
-      if ((this.#index[shard]?.size || 0) < this.#keysPerFile) return (this.#currentShard = shard);
-      else this.#shardPool.delete(shard);
-
-    return (this.#currentShard = null);
-  }
-
-  #createFile(): string {
-    this.#currentShard = `data_${Object.keys(this.#index).length + 1}.json`;
-    this.#index[this.#currentShard] = new Set();
-    this.#cache.set(this.#currentShard, {});
-    this.#shardPool.add(this.#currentShard);
-    return this.#currentShard;
-  }
-
-  async #writeAtomic(file: string, content: string): Promise<void> {
-    await fs.promises.writeFile(resolve(this.#path, `${file}.tmp`), content);
-    await fs.promises.rename(resolve(this.#path, `${file}.tmp`), resolve(this.#path, file));
   }
 
   async #loadFilesIntoCache() {
@@ -120,77 +85,19 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     }
   }
 
-  async #write(): Promise<void> {
-    const _queue = [...this.#writeQueue];
-    let somethingFailed = false;
-    this.#writeQueue.clear();
-    this.#debounceCount = 0;
+  async #replayJournal() {
+    const readStream = fs.createReadStream(this.#journalPath);
+    const readableInterface = rl.createInterface({ input: readStream, crlfDelay: Infinity });
 
-    const tasks = [..._queue.map((file) => ({ file, content: JSON.stringify(this.#cache.get(file)) }))];
-
-    this.#isWriting = true;
-
-    fs.closeSync(this.#journal);
-    fs.renameSync(this.#journalPath, this.#tempJournalPath);
-    this.#journal = fs.openSync(this.#journalPath, "a");
-
-    await Promise.all(
-      tasks.map((_) =>
-        this.#writeAtomic(_.file, _.content).catch(() => {
-          this.#writeQueue.add(_.file);
-          somethingFailed = true;
-        })
-      )
-    );
-
-    if (somethingFailed) {
-      const current = fs.readFileSync(this.#journalPath, "utf-8");
-      const old = fs.readFileSync(this.#tempJournalPath, "utf-8");
-      fs.closeSync(this.#journal);
-      fs.writeFileSync(this.#journalPath, `${old}\n${current}`);
-      this.#journal = fs.openSync(this.#journalPath, "a");
-      this.#debouncedWrite();
+    for await (const line of readableInterface) {
+      if (!line) continue;
+      const _ = JSON.parse(line);
+      if (_.op === "delete") this.#deleteEntry(_.key);
+      else if (_.op === "set") this.#updateOrCreateEntry(_.key, _.value);
     }
-
-    fs.unlinkSync(this.#tempJournalPath);
-
-    this.#isWriting = false;
   }
 
-  async #debouncedWrite(): Promise<void> {
-    this.#debounceCount++;
-    if (this.#debounceCount >= this.#maxDebounceCount && !this.#isWriting) return await this.#write();
-    this.#timer?.refresh();
-    this.#timer ||= setTimeout(() => (this.#isWriting ? this.#debouncedWrite() : this.#write()), this.#debounceTime);
-  }
-
-  #updateOrCreateEntry(key: string, value: T): T {
-    let shard = this.#reverseIndex[key];
-
-    if (shard) {
-      if (this.#cache.get(shard)![key] === value) return value;
-      this.#cache.get(shard)![key] = structuredClone(value);
-      this.#writeQueue.add(shard);
-    } else {
-      shard = this.#lookforSpaciousFile() || this.#createFile();
-      this.#cache.get(shard)![key] = structuredClone(value);
-      this.#reverseIndex[key] = shard;
-      this.#index[shard]!.add(key);
-      this.#writeQueue.add(shard);
-    }
-
-    return value;
-  }
-
-  #deleteEntry(key: string): boolean {
-    const shard = this.#reverseIndex[key];
-    shard && delete this.#cache.get(shard)![key];
-    shard && delete this.#reverseIndex[key];
-    shard && this.#index[shard]!.delete(key);
-    shard && this.#writeQueue.add(shard);
-    shard && this.#shardPool.add(shard);
-    return !!shard;
-  }
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   async has(key: string) {
     this.#validateKeys(key);
@@ -249,15 +156,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     return structuredClone(result) as { [K: string]: T };
   }
 
-  #validateKeys(key: unknown | unknown[]) {
-    const keys = Array.isArray(key) ? key : [key];
-
-    for (let i = 0; i < keys.length; i++) {
-      if (this.#reservedWords.has(keys[i])) throw `Reserved word '${keys[i]}' not allowed`;
-      if (!keys[i] || typeof keys[i] !== "string") throw `Expected : string literal\nGot : '${keys[i]}'`;
-      if (keys[i].length === 0 || keys[i].length > 255) throw `Expected : key length > 0 < 255\nGot : (${keys[i].length}) - '${keys[i]}' `;
-    }
-  }
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   toggle = (async (key) => {
     this.#validateKeys(key);
@@ -291,6 +190,8 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     return <Promise<number>>this.set(key, (data - count) as T);
   }) as SpecialMethods<T>["DECREMENT"];
 
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
   #getArrayData(key: string) {
     this.#validateKeys(key);
     const shard = this.#reverseIndex[key];
@@ -318,4 +219,118 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
       added: items,
       removed: D === undefined ? arr.splice(S) : arr.splice(S, D, ...items)
     }))) as SpecialMethods<T>["SPLICE"];
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  #validateKeys(key: unknown | unknown[]) {
+    const keys = Array.isArray(key) ? key : [key];
+
+    for (let i = 0; i < keys.length; i++) {
+      if (this.#reservedWords.has(keys[i])) throw `Reserved word '${keys[i]}' not allowed`;
+      if (!keys[i] || typeof keys[i] !== "string") throw `Expected : string literal\nGot : '${keys[i]}'`;
+      if (keys[i].length === 0 || keys[i].length > 255) throw `Expected : key length > 0 < 255\nGot : (${keys[i].length}) - '${keys[i]}' `;
+    }
+  }
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  #updateOrCreateEntry(key: string, value: T): T {
+    let shard = this.#reverseIndex[key];
+
+    if (shard) {
+      if (this.#cache.get(shard)![key] === value) return value;
+      this.#cache.get(shard)![key] = structuredClone(value);
+      this.#writeQueue.add(shard);
+    } else {
+      shard = this.#lookforSpaciousFile() || this.#createFile();
+      this.#cache.get(shard)![key] = structuredClone(value);
+      this.#reverseIndex[key] = shard;
+      this.#index[shard]!.add(key);
+      this.#writeQueue.add(shard);
+    }
+
+    return value;
+  }
+
+  #lookforSpaciousFile(): string | null {
+    if (this.#currentShard && (this.#index[this.#currentShard]?.size || 0) < this.#keysPerFile) return this.#currentShard;
+    else this.#currentShard && this.#shardPool.delete(this.#currentShard);
+
+    for (const shard of this.#shardPool)
+      if ((this.#index[shard]?.size || 0) < this.#keysPerFile) return (this.#currentShard = shard);
+      else this.#shardPool.delete(shard);
+
+    return (this.#currentShard = null);
+  }
+
+  #createFile(): string {
+    this.#currentShard = `data_${Object.keys(this.#index).length + 1}.json`;
+    this.#index[this.#currentShard] = new Set();
+    this.#cache.set(this.#currentShard, {});
+    this.#shardPool.add(this.#currentShard);
+    return this.#currentShard;
+  }
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  #deleteEntry(key: string): boolean {
+    const shard = this.#reverseIndex[key];
+    shard && delete this.#cache.get(shard)![key];
+    shard && delete this.#reverseIndex[key];
+    shard && this.#index[shard]!.delete(key);
+    shard && this.#writeQueue.add(shard);
+    shard && this.#shardPool.add(shard);
+    return !!shard;
+  }
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  async #debouncedWrite(): Promise<void> {
+    this.#debounceCount++;
+    if (this.#debounceCount >= this.#maxDebounceCount && !this.#isWriting) return await this.#write();
+    this.#timer?.refresh();
+    this.#timer ||= setTimeout(() => (this.#isWriting ? this.#debouncedWrite() : this.#write()), this.#debounceTime);
+  }
+
+  async #write(): Promise<void> {
+    const _queue = [...this.#writeQueue];
+    let somethingFailed = false;
+    this.#writeQueue.clear();
+    this.#debounceCount = 0;
+
+    const tasks = [..._queue.map((file) => ({ file, content: JSON.stringify(this.#cache.get(file)) }))];
+
+    this.#isWriting = true;
+
+    fs.closeSync(this.#journal);
+    fs.renameSync(this.#journalPath, this.#tempJournalPath);
+    this.#journal = fs.openSync(this.#journalPath, "a");
+
+    await Promise.all(
+      tasks.map((_) =>
+        this.#writeAtomic(_.file, _.content).catch(() => {
+          this.#writeQueue.add(_.file);
+          somethingFailed = true;
+        })
+      )
+    );
+
+    if (somethingFailed) {
+      const current = fs.readFileSync(this.#journalPath, "utf-8");
+      const old = fs.readFileSync(this.#tempJournalPath, "utf-8");
+      fs.closeSync(this.#journal);
+      fs.writeFileSync(this.#journalPath, `${old}\n${current}`);
+      this.#journal = fs.openSync(this.#journalPath, "a");
+      this.#debouncedWrite();
+    }
+
+    fs.unlinkSync(this.#tempJournalPath);
+
+    this.#isWriting = false;
+  }
+
+  async #writeAtomic(file: string, content: string): Promise<void> {
+    await fs.promises.writeFile(resolve(this.#path, `${file}.tmp`), content);
+    await fs.promises.rename(resolve(this.#path, `${file}.tmp`), resolve(this.#path, file));
+  }
 }
