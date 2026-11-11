@@ -5,7 +5,7 @@ import * as fs from "node:fs";
 import * as rl from "node:readline";
 import { resolve } from "node:path";
 
-import type { Methods, KVstoreOptions } from "../types";
+import type { SpecialMethods, KVstoreOptions } from "./types.js";
 
 export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnknown, T = S extends z.ZodType ? z.infer<S> : S> {
   #isWriting = false;
@@ -267,7 +267,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     if (typeof data !== "boolean") throw new Error("Can't toggle non-boolean values");
 
     return (await this.set(key, !data as T)) as boolean;
-  }) as Methods<T>["TOGGLE"];
+  }) as SpecialMethods<T>["TOGGLE"];
 
   increment = (async (key, count = 1) => {
     this.#validateKeys(key);
@@ -278,7 +278,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     if (typeof count !== "number") throw new Error("Can't increment with a non-numeric count");
 
     return <Promise<number>>this.set(key, (data + count) as T);
-  }) as Methods<T>["INCREMENT"];
+  }) as SpecialMethods<T>["INCREMENT"];
 
   decrement = (async (key, count = 1) => {
     this.#validateKeys(key);
@@ -289,7 +289,7 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     if (typeof count !== "number") throw new Error("Can't decrement with a non-numeric count");
 
     return <Promise<number>>this.set(key, (data - count) as T);
-  }) as Methods<T>["DECREMENT"];
+  }) as SpecialMethods<T>["DECREMENT"];
 
   #getArrayData(key: string) {
     this.#validateKeys(key);
@@ -307,12 +307,15 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     return { ...res, length: data.length };
   }
 
-  length = (async (K) => this.#getArrayData(K).length) as Methods<T>["LENGTH"];
-  pop = (async (K) => this.#mutate(K, (arr) => ({ element: arr.pop() }))) as Methods<T>["POP"];
-  shift = (async (K) => this.#mutate(K, (arr) => ({ element: arr.shift() }))) as Methods<T>["SHIFT"];
-  slice = (async (K, S, E) => ({ elements: this.#getArrayData(K).slice(S, E) })) as Methods<T>["SLICE"];
-  push = (async (K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.push(...items), items) }))) as Methods<T>["PUSH"];
-  unshift = (async (K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.unshift(...items), items) }))) as Methods<T>["UNSHIFT"];
+  length = (async (K) => this.#getArrayData(K).length) as SpecialMethods<T>["LENGTH"];
+  pop = (async (K) => this.#mutate(K, (arr) => ({ element: arr.pop() }))) as SpecialMethods<T>["POP"];
+  shift = (async (K) => this.#mutate(K, (arr) => ({ element: arr.shift() }))) as SpecialMethods<T>["SHIFT"];
+  slice = (async (K, S, E) => ({ elements: this.#getArrayData(K).slice(S, E) })) as SpecialMethods<T>["SLICE"];
+  push = (async (K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.push(...items), items) }))) as SpecialMethods<T>["PUSH"];
+  unshift = (async (K, ...items) => this.#mutate(K, (arr) => ({ elements: (arr.unshift(...items), items) }))) as SpecialMethods<T>["UNSHIFT"];
   splice = (async (K, S, D, ...items) =>
-    this.#mutate(K, (arr) => ({ added: items, removed: D === undefined ? arr.splice(S) : arr.splice(S, D, ...items) }))) as Methods<T>["SPLICE"];
+    this.#mutate(K, (arr) => ({
+      added: items,
+      removed: D === undefined ? arr.splice(S) : arr.splice(S, D, ...items)
+    }))) as SpecialMethods<T>["SPLICE"];
 }

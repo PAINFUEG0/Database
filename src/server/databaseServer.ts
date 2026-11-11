@@ -10,7 +10,7 @@ import { handleIncomingWebsocketMessages } from "./handleWebsocketMessages.js";
 import { createServer as createHttpServer, IncomingMessage, ServerResponse } from "node:http";
 
 import type { KeyValueStore } from "./keyValueStore.js";
-import type { DatabaseServerOptions } from "../types.js";
+import type { DatabaseServerOptions } from "./types.js";
 
 export const databases = new Map<string, KeyValueStore<any>>();
 const respond = (res: ServerResponse, code: number, data: any) =>

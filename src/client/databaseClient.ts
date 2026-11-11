@@ -8,7 +8,7 @@ import { Agent, fetch } from "undici";
 import { Database } from "./database.js";
 import { randomUUID } from "node:crypto";
 
-import type { RequestMode, DatabaseClientRequest, DatabaseClientOptions, DatabaseServerResponse, Protocols } from "../types.js";
+import type { RequestMode, DatabaseClientRequest, DatabaseClientOptions, DatabaseServerResponse, Protocols } from "./types.js";
 
 export class DatabaseClient {
   #address: string;

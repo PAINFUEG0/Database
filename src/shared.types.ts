@@ -1,44 +1,8 @@
 /** @format */
 
-import z from "zod";
+import type { z } from "zod";
 
-export type RequestMode = "ws" | "rest";
-
-export type KVstoreOptions = {
-  path: string;
-  keysPerFile?: number;
-  debounceTime?: number;
-  maxDebounceCount?: number;
-};
-
-export type DatabaseClientOptions = {
-  host: string;
-  port: number;
-  passphrase: string;
-  mode?: RequestMode;
-  throwOnError?: boolean;
-  throwOnDisconnect?: boolean;
-  onError?: (err: Error) => void;
-  onDisconnect?: (address: string) => void;
-  ssl?: { enabled: boolean; rejectUnauthorized?: boolean };
-};
-
-export type DatabaseServerOptions = {
-  port: number;
-  passphrase: string;
-  onStderr?: (err: string) => void;
-  onStdout?: (data: string) => void;
-  ssl?: SslConfig;
-};
-
-export type SslConfig = { key: string; cert: string; rejectUnauthorized?: boolean };
-
-export type DatabaseClientRequest<T> = {
-  promise: Promise<T>;
-  timeout: NodeJS.Timeout;
-  resolve: (args: T) => void;
-  reject: (err?: Error) => void;
-};
+export type KVstoreOptions = { path: string; keysPerFile?: number; debounceTime?: number; maxDebounceCount?: number };
 
 export type Protocols<T = unknown> = {
   INIT: { req: { method: "INIT"; options: Omit<KVstoreOptions, "path">; schema?: z.core.ZodStandardJSONSchemaPayload<z.ZodUnknown> }; res: boolean };
@@ -77,14 +41,12 @@ export type Protocols<T = unknown> = {
   DECREMENT: { req: { method: "DECREMENT"; key: string; count?: number }; res: number };
 };
 
-export type DatabaseServerResponse<T = unknown> = { requestId: string; data: T } | { requestId: string; error: string };
-
 export type El<T> = T extends (infer E)[] ? E : unknown extends T ? unknown : never;
 export type IfNumber<T, Fn> = T extends number ? Fn : unknown extends T ? Fn : never;
 export type IfBoolean<T, Fn> = T extends boolean ? Fn : unknown extends T ? Fn : never;
 export type IfArray<T, Fn> = T extends unknown[] ? Fn : unknown extends T ? Fn : never;
 
-export type Methods<T> = {
+export type SpecialMethods<T> = {
   POP: IfArray<T, (key: string) => Promise<Protocols["POP"]["res"]>>;
   SHIFT: IfArray<T, (key: string) => Promise<Protocols["SHIFT"]["res"]>>;
   LENGTH: IfArray<T, (key: string) => Promise<Protocols["LENGTH"]["res"]>>;

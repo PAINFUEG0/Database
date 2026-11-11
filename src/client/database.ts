@@ -1,7 +1,7 @@
 /** @format */
 
 import { z } from "zod";
-import type { Methods, Protocols } from "../types";
+import type { SpecialMethods, Protocols } from "./types.js";
 
 export class Database<T> {
   #schema?: z.ZodType;
@@ -34,20 +34,20 @@ export class Database<T> {
   set = async (key: string, value: T) => this.#makeRequest({ method: "SET", key, value });
   setMany = async (data: { key: string; value: T }[]) => this.#makeRequest({ method: "SET_MANY", data });
 
-  pop = (async (key) => this.#makeRequest({ method: "POP", key })) as Methods<T>["POP"];
-  shift = (async (key) => this.#makeRequest({ method: "SHIFT", key })) as Methods<T>["SHIFT"];
+  pop = (async (key) => this.#makeRequest({ method: "POP", key })) as SpecialMethods<T>["POP"];
+  shift = (async (key) => this.#makeRequest({ method: "SHIFT", key })) as SpecialMethods<T>["SHIFT"];
 
-  length = (async (key) => this.#makeRequest({ method: "LENGTH", key })) as Methods<T>["LENGTH"];
-  slice = (async (key, start, end) => this.#makeRequest({ method: "SLICE", key, start, end })) as Methods<T>["SLICE"];
+  length = (async (key) => this.#makeRequest({ method: "LENGTH", key })) as SpecialMethods<T>["LENGTH"];
+  slice = (async (key, start, end) => this.#makeRequest({ method: "SLICE", key, start, end })) as SpecialMethods<T>["SLICE"];
 
-  push = (async (key, ...items) => this.#makeRequest({ method: "PUSH", key, items })) as Methods<T>["PUSH"];
-  unshift = (async (key, ...items) => this.#makeRequest({ method: "UNSHIFT", key, items })) as Methods<T>["UNSHIFT"];
+  push = (async (key, ...items) => this.#makeRequest({ method: "PUSH", key, items })) as SpecialMethods<T>["PUSH"];
+  unshift = (async (key, ...items) => this.#makeRequest({ method: "UNSHIFT", key, items })) as SpecialMethods<T>["UNSHIFT"];
 
   splice = (async (key, start, deleteCount, ...items) =>
-    this.#makeRequest({ method: "SPLICE", key, start, deleteCount, items })) as Methods<T>["SPLICE"];
+    this.#makeRequest({ method: "SPLICE", key, start, deleteCount, items })) as SpecialMethods<T>["SPLICE"];
 
-  toggle = (async (key) => this.#makeRequest({ method: "TOGGLE", key })) as Methods<T>["TOGGLE"];
+  toggle = (async (key) => this.#makeRequest({ method: "TOGGLE", key })) as SpecialMethods<T>["TOGGLE"];
 
-  increment = (async (key, count) => this.#makeRequest({ method: "INCREMENT", key, count })) as Methods<T>["INCREMENT"];
-  decrement = (async (key, count) => this.#makeRequest({ method: "DECREMENT", key, count })) as Methods<T>["DECREMENT"];
+  increment = (async (key, count) => this.#makeRequest({ method: "INCREMENT", key, count })) as SpecialMethods<T>["INCREMENT"];
+  decrement = (async (key, count) => this.#makeRequest({ method: "DECREMENT", key, count })) as SpecialMethods<T>["DECREMENT"];
 }

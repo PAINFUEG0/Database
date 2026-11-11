@@ -1,12 +1,12 @@
 /** @format */
 
+import z from "zod";
 import { posix, resolve } from "node:path";
 import { databases } from "./databaseServer.js";
 import { KeyValueStore as Store } from "./keyValueStore.js";
 
-import type { Protocols } from "../types.js";
+import type { Protocols } from "./types.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import z from "zod";
 
 const promises = new Map<string, Promise<boolean>>();
 type T = { [K in keyof Protocols]: (db: Store, pl: Protocols[K]["req"] & { path: string }) => Promise<Protocols[K]["res"]> };
