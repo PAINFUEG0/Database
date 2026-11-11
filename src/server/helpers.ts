@@ -12,7 +12,7 @@ const promises = new Map<string, Promise<boolean>>();
 type T = { [K in keyof Protocols]: (db: Store, pl: Protocols[K]["req"] & { path: string }) => Promise<Protocols[K]["res"]> };
 
 export const actions = Object.assign(<T>Object.create(null), {
-  ALL: (db) => Promise.resolve(db.all()),
+  ALL: (db) => db.all(),
 
   HAS: (db, PL) => db.has(PL.key),
   HAS_MANY: (db, PL) => db.hasMany(PL.keys),

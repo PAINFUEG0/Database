@@ -243,10 +243,10 @@ export class KeyValueStore<S extends z.ZodType | z.infer<z.ZodType> = z.ZodUnkno
     return res;
   }
 
-  all(): { [K: string]: T } {
+  async all() {
     const result = Object.create(null);
     for (const data of this.#cache.values()) Object.assign(result, data);
-    return structuredClone(result);
+    return structuredClone(result) as { [K: string]: T };
   }
 
   #validateKeys(key: unknown | unknown[]) {
