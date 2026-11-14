@@ -1,24 +1,13 @@
 /** @format */
 
-import { z } from "zod";
 import type { SpecialMethods, Protocols } from "./types.js";
 
 export class Database<T> {
-  #schema?: z.ZodType;
-  #initialized = false;
   #makeRequest: <P extends Protocols<T>[keyof Protocols<T>]["req"]>(PL: P) => Promise<Protocols<T>[keyof Protocols<T> & P["method"]]["res"]>;
 
-  constructor(payloadSenderFunction: <D>(PL: Protocols<D>[keyof Protocols<D>]["req"]) => Promise<D>, schema?: z.ZodType) {
-    this.#schema = schema;
-    this.#makeRequest = payloadSenderFunction;
+  constructor(requestMaker: <D>(PL: Protocols<D>[keyof Protocols<D>]["req"]) => Promise<D>) {
+    this.#makeRequest = requestMaker;
   }
-
-  init = async (options: Protocols<T>["INIT"]["req"]["options"] = {}) => {
-    if (this.#initialized) return this;
-    await this.#makeRequest({ method: "INIT", options, schema: this.#schema?.toJSONSchema() });
-    this.#initialized = true;
-    return this;
-  };
 
   all = async () => this.#makeRequest({ method: "ALL" });
 

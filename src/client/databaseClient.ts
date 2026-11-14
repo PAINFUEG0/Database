@@ -115,13 +115,14 @@ export class DatabaseClient {
 
     const requestMaker = this.#mode === "ws" ? this.#sendWSmessage.bind(this, path) : this.#sendRestRequest.bind(this, path);
 
-    this.#paths.add(path);
-    return await new Database(requestMaker as any, op?.schema)
-      .init({ debounceTime: op?.debounceTime, maxDebounceCount: op?.maxDebounceCount, keysPerFile: op?.keysPerFile })
-      .catch((e) => {
-        this.#paths.delete(path);
-        throw e;
-      });
+    return await requestMaker({
+      method: "INIT",
+      schema: op?.schema?.toJSONSchema(),
+      options: { debounceTime: op?.debounceTime, maxDebounceCount: op?.maxDebounceCount, keysPerFile: op?.keysPerFile }
+    }).then(() => {
+      this.#paths.add(path);
+      return new Database(requestMaker as any);
+    });
   }
 
   async #sendRestRequest<P>(path: string, PL: Protocols<P>[keyof Protocols<P>]["req"]): Promise<P> {
